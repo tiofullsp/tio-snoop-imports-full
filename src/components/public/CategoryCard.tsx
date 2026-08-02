@@ -44,7 +44,7 @@ interface CategoryCardProps {
 
 export const CategoryCard = ({ category, previewMode }: CategoryCardProps) => {
   const resolvedImage = category.image_url ?? category.first_product_image_url;
-  const accentColor   = category.color_accent || "#3b82f6";
+  const accentColor   = category.color_accent || "#f2b705";
   const Icon: IconComp =
     (category.icon ? ICON_MAP[category.icon] : undefined) ?? Package;
 

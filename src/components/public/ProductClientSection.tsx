@@ -279,7 +279,7 @@ export const ProductClientSection = ({ product, selectedVariant, selectedSize, c
         size="lg"
         onClick={handleAdd}
         leftIcon={added ? <CheckCircle2 size={18} /> : <ShoppingCart size={18} />}
-        className="shadow-[0_6px_24px_rgba(59, 130, 246,0.3)]"
+        className="shadow-[0_6px_24px_rgba(242,183,5,0.3)]"
       >
         {added
           ? "Adicionado ao carrinho!"

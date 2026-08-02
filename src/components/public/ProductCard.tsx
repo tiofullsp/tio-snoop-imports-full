@@ -54,9 +54,9 @@ export const ProductCard = ({ product, showCategory = false }: ProductCardProps)
     <div
       className="group relative flex flex-col bg-dark-surface border border-dark-border-light rounded-2xl overflow-hidden
         transition-all duration-300 ease-out
-        shadow-[0_0_0_1px_rgba(59,130,246,0.08),0_8px_24px_rgba(0,0,0,0.4)]
+        shadow-[0_0_0_1px_rgba(242,183,5,0.08),0_8px_24px_rgba(0,0,0,0.4)]
         hover:border-accent/40 hover:-translate-y-2
-        hover:shadow-[0_28px_72px_rgba(0,0,0,0.6),_0_0_0_1px_rgba(59,130,246,0.25)]"
+        hover:shadow-[0_28px_72px_rgba(0,0,0,0.6),_0_0_0_1px_rgba(242,183,5,0.25)]"
     >
       {/* Topo com brilho sutil no hover */}
       <div className="absolute top-0 left-8 right-8 h-px bg-gradient-to-r from-transparent via-accent/0 to-transparent group-hover:via-accent/40 transition-all duration-500 z-10" />

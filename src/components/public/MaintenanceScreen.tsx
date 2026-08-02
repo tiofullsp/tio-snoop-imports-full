@@ -9,10 +9,10 @@ interface Props {
 export const MaintenanceScreen = ({ whatsappLink }: Props) => (
   <div className="min-h-screen flex flex-col items-center justify-center px-4 text-center bg-dark-bg">
     <Image
-      src="/logo-pyimports-light.png"
-      alt="PY Imports"
-      width={866}
-      height={288}
+      src="/logo-tio-snoop.png"
+      alt="Tio Snoop Imports Full"
+      width={860}
+      height={418}
       unoptimized
       priority
       className="h-14 w-auto object-contain mb-8"

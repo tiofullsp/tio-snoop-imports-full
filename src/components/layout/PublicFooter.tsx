@@ -26,14 +26,14 @@ export const PublicFooter = ({ categories, whatsappNumber }: Props) => (
     <div className="max-w-6xl mx-auto px-4 sm:px-6 py-16">
       <div className="grid grid-cols-1 md:grid-cols-4 gap-10 mb-12">
 
-        {/* Brand — PY Imports */}
+        {/* Brand — Tio Snoop Imports Full */}
         <div className="col-span-1 md:col-span-2">
           <Link href={routes.home} className="inline-block mb-5">
             <Image
-              src="/logo-pyimports-light.png"
-              alt="PY Imports"
-              width={866}
-              height={288}
+              src="/logo-tio-snoop.png"
+              alt="Tio Snoop Imports Full"
+              width={860}
+              height={418}
               unoptimized
               className="h-10 w-auto object-contain opacity-90 hover:opacity-100 transition-opacity"
             />
@@ -103,7 +103,7 @@ export const PublicFooter = ({ categories, whatsappNumber }: Props) => (
 
       <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
         <p className="text-xs text-muted/70">
-          © {new Date().getFullYear()} AureonX. Todos os direitos reservados.
+          © {new Date().getFullYear()} Tio Snoop Imports Full. Todos os direitos reservados.
         </p>
         <div className="flex items-center gap-5">
           <span className="text-xs text-muted/70 flex items-center gap-1.5">

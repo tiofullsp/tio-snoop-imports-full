@@ -51,7 +51,7 @@ export const AnnouncementBell = ({ announcements }: Props) => {
       <button
         onClick={() => setOpen((v) => !v)}
         aria-label="Avisos e promoções"
-        className="relative flex items-center justify-center w-11 h-11 rounded-xl bg-dark-surface border border-dark-border text-dark-text/70 hover:text-accent hover:border-accent/50 hover:shadow-[0_0_16px_rgba(59,130,246,0.25)] transition-all duration-200"
+        className="relative flex items-center justify-center w-11 h-11 rounded-xl bg-dark-surface border border-dark-border text-dark-text/70 hover:text-accent hover:border-accent/50 hover:shadow-[0_0_16px_rgba(242,183,5,0.25)] transition-all duration-200"
       >
         <Bell size={20} />
         <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-accent flex items-center justify-center">
@@ -64,7 +64,7 @@ export const AnnouncementBell = ({ announcements }: Props) => {
         <div
           className="fixed top-24 inset-x-4 mt-2 sm:absolute sm:inset-x-auto sm:right-0 sm:top-full sm:left-auto sm:mt-3 sm:w-96 z-50 animate-fade-in"
         >
-          <div className="relative rounded-2xl overflow-hidden bg-dark-surface border border-accent/25 shadow-[0_0_0_1px_rgba(59,130,246,0.1),0_24px_64px_rgba(0,0,0,0.55)]">
+          <div className="relative rounded-2xl overflow-hidden bg-dark-surface border border-accent/25 shadow-[0_0_0_1px_rgba(242,183,5,0.1),0_24px_64px_rgba(0,0,0,0.55)]">
             <div className="absolute top-0 left-6 right-6 h-px bg-gradient-to-r from-transparent via-accent/60 to-transparent" />
 
             <div className="px-4 py-3.5 border-b border-dark-border flex items-center gap-2">

@@ -28,7 +28,7 @@ function toPublicSettings(row: DbStoreSettingsPublic): PublicStoreSettings {
 }
 
 const FALLBACK_PUBLIC_SETTINGS: PublicStoreSettings = {
-  store_name: "PYimports",
+  store_name: "Tio Snoop Imports Full",
   whatsapp_number: "5511999999999",
   whatsapp_default_message: "Olá! Vim pela loja e tenho uma dúvida.",
   insurance_percentage: 0.25,

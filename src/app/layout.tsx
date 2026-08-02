@@ -10,8 +10,8 @@ const inter = Inter({
 
 export const metadata: Metadata = {
   title: {
-    default: "PYimports",
-    template: "%s | PYimports",
+    default: "Tio Snoop Imports Full",
+    template: "%s | Tio Snoop Imports Full",
   },
   description: "Loja premium com produtos de alta qualidade.",
   robots: { index: false, follow: false },

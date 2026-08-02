@@ -176,14 +176,15 @@ export function ConfiguracoesClient({ initialSettings, initialAdmins, currentAdm
 
         <TabContent value="pagamentos" active={activeTab}>
           <div className="space-y-4 mt-6">
-            <SectionCard title="Pagamento via Zendry">
+            <SectionCard title="Pagamento — Pix (SupraPay) + Cartão (Zendry)">
               <p className="text-sm text-muted leading-relaxed">
-                O checkout gera automaticamente um link de pagamento hospedado (Zendry) para cada
-                pedido — o cliente escolhe Pix ou cartão na página deles. Não há configuração manual
-                de chave Pix ou cartão nesta tela.
+                O checkout gera automaticamente um QR Code Pix embutido na própria página, via
+                SupraPay. Pagamento por cartão continua embutido também, processado pelo Zendry
+                (com 3DS). O cliente escolhe Pix ou cartão na tela de pagamento do pedido. Não há
+                configuração manual de chave Pix ou cartão nesta tela.
               </p>
               <p className="text-xs text-muted">
-                As credenciais de integração do Zendry ficam nas variáveis de ambiente do servidor, não aqui.
+                As credenciais de integração (SupraPay e Zendry) ficam nas variáveis de ambiente do servidor, não aqui.
               </p>
             </SectionCard>
           </div>
@@ -280,11 +281,11 @@ export function ConfiguracoesClient({ initialSettings, initialAdmins, currentAdm
               <div className="flex items-center gap-3 flex-wrap">
                 <button
                   className="w-10 h-10 rounded-full border-2 border-white scale-110 transition-all bg-accent"
-                  title="#3b82f6"
+                  title="#f2b705"
                 />
               </div>
-              <p className="text-xs text-muted">Cor atual: <span className="text-accent font-bold">#3b82f6 (Azul premium)</span></p>
-              <p className="text-xs text-muted">A identidade visual da loja é fixa na paleta oficial (azul-marinho, azul e off-white).</p>
+              <p className="text-xs text-muted">Cor atual: <span className="text-accent font-bold">#f2b705 (Dourado premium)</span></p>
+              <p className="text-xs text-muted">A identidade visual da loja é fixa na paleta oficial (preto, dourado e off-white).</p>
             </SectionCard>
             <SectionCard title="Logo">
               <Input

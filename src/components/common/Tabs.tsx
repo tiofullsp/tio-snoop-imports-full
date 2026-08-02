@@ -51,7 +51,7 @@ export const Tabs = ({
               variant === "pills"
                 ? `px-4 py-2 rounded-full border uppercase tracking-wide text-xs ${
                     active === tab.value
-                      ? "border-accent text-accent bg-accent/10 shadow-[0_0_16px_rgba(59,130,246,0.35)]"
+                      ? "border-accent text-accent bg-accent/10 shadow-[0_0_16px_rgba(242,183,5,0.35)]"
                       : "border-dark-border text-muted hover:text-dark-text hover:border-accent/30"
                   }`
                 : `px-4 py-3 border-b-2 -mb-px ${

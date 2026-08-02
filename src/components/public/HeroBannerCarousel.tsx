@@ -105,14 +105,14 @@ export const HeroBannerCarousel = ({ banners }: HeroBannerCarouselProps) => {
           <button
             onClick={prev}
             aria-label="Banner anterior"
-            className="absolute left-3 sm:left-6 top-1/2 -translate-y-1/2 z-20 w-10 h-10 sm:w-12 sm:h-12 rounded-full backdrop-blur-sm bg-black/30 hover:bg-black/55 active:bg-black/70 border border-white/20 hover:border-accent/60 hover:shadow-[0_0_16px_rgba(59, 130, 246,0.3)] flex items-center justify-center text-white transition-all duration-200 touch-manipulation"
+            className="absolute left-3 sm:left-6 top-1/2 -translate-y-1/2 z-20 w-10 h-10 sm:w-12 sm:h-12 rounded-full backdrop-blur-sm bg-black/30 hover:bg-black/55 active:bg-black/70 border border-white/20 hover:border-accent/60 hover:shadow-[0_0_16px_rgba(242,183,5,0.3)] flex items-center justify-center text-white transition-all duration-200 touch-manipulation"
           >
             <ChevronLeft size={22} />
           </button>
           <button
             onClick={next}
             aria-label="Próximo banner"
-            className="absolute right-3 sm:right-6 top-1/2 -translate-y-1/2 z-20 w-10 h-10 sm:w-12 sm:h-12 rounded-full backdrop-blur-sm bg-black/30 hover:bg-black/55 active:bg-black/70 border border-white/20 hover:border-accent/60 hover:shadow-[0_0_16px_rgba(59, 130, 246,0.3)] flex items-center justify-center text-white transition-all duration-200 touch-manipulation"
+            className="absolute right-3 sm:right-6 top-1/2 -translate-y-1/2 z-20 w-10 h-10 sm:w-12 sm:h-12 rounded-full backdrop-blur-sm bg-black/30 hover:bg-black/55 active:bg-black/70 border border-white/20 hover:border-accent/60 hover:shadow-[0_0_16px_rgba(242,183,5,0.3)] flex items-center justify-center text-white transition-all duration-200 touch-manipulation"
           >
             <ChevronRight size={22} />
           </button>

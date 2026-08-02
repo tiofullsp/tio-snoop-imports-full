@@ -133,7 +133,7 @@ export function ProductPdpClient({ product, whatsappNumber }: Props) {
                       className={[
                         "w-9 h-9 rounded-full border-2 transition-all duration-150",
                         v.id === selectedVariantId
-                          ? "border-accent scale-110 shadow-[0_0_0_3px_rgba(59, 130, 246,0.25)]"
+                          ? "border-accent scale-110 shadow-[0_0_0_3px_rgba(242,183,5,0.25)]"
                           : "border-dark-border hover:border-accent/50",
                       ].join(" ")}
                       style={{ backgroundColor: v.color_hex }}

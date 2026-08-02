@@ -69,10 +69,10 @@ export const PublicNavbar = ({ categories, announcements = [], whatsappNumber, w
             {/* ── Logo ─────────────────────────────── */}
             <Link href={routes.home} className="flex items-center flex-shrink-0">
               <Image
-                src="/logo-pyimports-light.png"
-                alt="PY Imports"
-                width={866}
-                height={288}
+                src="/logo-tio-snoop.png"
+                alt="Tio Snoop Imports Full"
+                width={860}
+                height={418}
                 priority
                 unoptimized
                 className="h-12 sm:h-16 w-auto object-contain transition-transform duration-300 hover:scale-105"
@@ -129,7 +129,7 @@ export const PublicNavbar = ({ categories, announcements = [], whatsappNumber, w
               <Link
                 href={routes.carrinho}
                 aria-label="Carrinho de compras"
-                className="relative flex items-center justify-center w-11 h-11 rounded-xl bg-dark-surface border border-dark-border text-dark-text/70 hover:text-accent hover:border-accent/50 hover:shadow-[0_0_16px_rgba(59, 130, 246,0.25)] transition-all duration-200"
+                className="relative flex items-center justify-center w-11 h-11 rounded-xl bg-dark-surface border border-dark-border text-dark-text/70 hover:text-accent hover:border-accent/50 hover:shadow-[0_0_16px_rgba(242,183,5,0.25)] transition-all duration-200"
               >
                 <ShoppingCart size={21} />
                 {itemCount > 0 && (

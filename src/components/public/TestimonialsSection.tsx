@@ -307,11 +307,11 @@ export function TestimonialsSection({ reviews }: { reviews: Review[] }) {
       {/* Brilho radial de fundo */}
       <div
         className="absolute inset-0 pointer-events-none"
-        style={{ background: "radial-gradient(ellipse at 50% 50%, rgba(59, 130, 246,0.04) 0%, transparent 65%)" }}
+        style={{ background: "radial-gradient(ellipse at 50% 50%, rgba(242,183,5,0.04) 0%, transparent 65%)" }}
       />
       <Container className="relative">
         <div className="flex justify-center">
-          <div className="inline-flex items-center px-7 py-3.5 rounded-full border border-accent/30 bg-accent/5 shadow-[0_0_30px_rgba(59, 130, 246,0.1)]">
+          <div className="inline-flex items-center px-7 py-3.5 rounded-full border border-accent/30 bg-accent/5 shadow-[0_0_30px_rgba(242,183,5,0.1)]">
             <h2 className="text-2xl md:text-3xl font-bold text-dark-text tracking-tight text-center">
               O QUE NOSSOS CLIENTES DIZEM:
             </h2>

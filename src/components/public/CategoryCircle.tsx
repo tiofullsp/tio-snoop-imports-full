@@ -32,7 +32,7 @@ export const CategoryCircle = ({ category }: CategoryCircleProps) => {
           transition-all duration-300 ease-out
           group-hover:border-accent
           group-hover:scale-105
-          group-hover:shadow-[0_0_28px_rgba(59, 130, 246,0.55),_0_0_0_1px_rgba(59, 130, 246,0.2)]
+          group-hover:shadow-[0_0_28px_rgba(242,183,5,0.55),_0_0_0_1px_rgba(242,183,5,0.2)]
         "
       >
         {resolvedImage ? (

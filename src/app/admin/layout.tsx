@@ -3,8 +3,8 @@ import type { Metadata } from "next";
 
 export const metadata: Metadata = {
   title: {
-    absolute: "PYimports | Admin",
-    template: "%s | PYimports Admin",
+    absolute: "Tio Snoop Imports Full | Admin",
+    template: "%s | Tio Snoop Imports Full Admin",
   },
 };
 

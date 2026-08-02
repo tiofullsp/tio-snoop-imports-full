@@ -38,7 +38,7 @@ export const CartToast = () => {
       <div
         className="relative flex items-center gap-4 pl-4 pr-7 py-4 rounded-2xl overflow-hidden
           bg-dark-surface border border-accent/25
-          shadow-[0_0_0_1px_rgba(59,130,246,0.12),0_20px_48px_rgba(0,0,0,0.55)]"
+          shadow-[0_0_0_1px_rgba(242,183,5,0.12),0_20px_48px_rgba(0,0,0,0.55)]"
       >
         {/* Brilho sutil no topo */}
         <div className="absolute top-0 left-6 right-6 h-px bg-gradient-to-r from-transparent via-accent/60 to-transparent" />

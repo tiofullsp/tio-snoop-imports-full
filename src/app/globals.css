@@ -3,18 +3,18 @@
 @theme {
   --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif;
 
-  /* Dark Navy Theme — azul-marinho profundo + acento azul */
-  --color-dark-bg: #0a0d1f;           /* navy quase preto */
-  --color-dark-surface: #10142c;      /* superfícies elevadas */
-  --color-dark-alt: #161a35;          /* alt / hover background */
-  --color-dark-hover: #1c2142;        /* hover state */
-  --color-accent: #3b82f6;            /* azul principal */
-  --color-accent-light: #60a5fa;      /* azul claro */
-  --color-accent-dim: rgba(59, 130, 246, 0.15);
-  --color-dark-text: #f3f5fb;         /* off-white principal */
-  --color-muted: #8b93b8;             /* texto secundário azulado */
-  --color-dark-border: #1e2444;       /* borda neutra escura */
-  --color-dark-border-light: #2a3160; /* borda mais clara */
+  /* Dark Gold Theme — preto/grafite profundo + acento dourado */
+  --color-dark-bg: #0a0a0d;           /* preto quase puro */
+  --color-dark-surface: #141417;      /* superfícies elevadas */
+  --color-dark-alt: #1c1c20;          /* alt / hover background */
+  --color-dark-hover: #232328;        /* hover state */
+  --color-accent: #f2b705;            /* dourado principal */
+  --color-accent-light: #ffd23f;      /* dourado claro */
+  --color-accent-dim: rgba(242, 183, 5, 0.15);
+  --color-dark-text: #f5f5f3;         /* off-white principal */
+  --color-muted: #9a9a94;             /* texto secundário neutro */
+  --color-dark-border: #2a2a2e;       /* borda neutra escura */
+  --color-dark-border-light: #38383e; /* borda mais clara */
 
   /* Semantic */
   --color-success: #10b981;
@@ -98,14 +98,14 @@
   }
   .card-hover:hover {
     transform: translateY(-3px);
-    box-shadow: 0 24px 64px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(59, 130, 246, 0.12);
-    border-color: rgba(59, 130, 246, 0.28) !important;
+    box-shadow: 0 24px 64px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(242, 183, 5, 0.12);
+    border-color: rgba(242, 183, 5, 0.28) !important;
   }
 
   /* Gold divider — linha decorativa horizontal */
   .divider-gold {
     height: 1px;
-    background: linear-gradient(to right, transparent, rgba(59, 130, 246, 0.5), transparent);
+    background: linear-gradient(to right, transparent, rgba(242, 183, 5, 0.5), transparent);
   }
 
   /* Eyebrow label — pequena pílula dourada acima do título */
@@ -114,8 +114,8 @@
     align-items: center;
     gap: 0.375rem;
     padding: 0.25rem 0.875rem;
-    background: rgba(59, 130, 246, 0.08);
-    border: 1px solid rgba(59, 130, 246, 0.22);
+    background: rgba(242, 183, 5, 0.08);
+    border: 1px solid rgba(242, 183, 5, 0.22);
     border-radius: 9999px;
     font-size: 0.6875rem;
     font-weight: 700;
@@ -132,7 +132,7 @@
     content: "";
     position: absolute;
     inset: 0;
-    background: radial-gradient(ellipse at 50% 0%, rgba(59, 130, 246, 0.055) 0%, transparent 58%);
+    background: radial-gradient(ellipse at 50% 0%, rgba(242, 183, 5, 0.055) 0%, transparent 58%);
     pointer-events: none;
   }
 
@@ -148,7 +148,7 @@
     font-size: 1.125rem;
     font-weight: 800;
     color: var(--color-dark-bg);
-    box-shadow: 0 4px 16px rgba(59, 130, 246, 0.35);
+    box-shadow: 0 4px 16px rgba(242, 183, 5, 0.35);
     flex-shrink: 0;
   }
 
@@ -162,8 +162,8 @@
     transition: all 0.3s ease;
   }
   .hover-gold-glow:hover {
-    box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.2), 0 8px 32px rgba(0, 0, 0, 0.4),
-                0 0 40px rgba(59, 130, 246, 0.06);
+    box-shadow: 0 0 0 1px rgba(242, 183, 5, 0.2), 0 8px 32px rgba(0, 0, 0, 0.4),
+                0 0 40px rgba(242, 183, 5, 0.06);
   }
 
   .sidebar-item-active {
@@ -173,7 +173,7 @@
 
   .animate-shimmer {
     animation: shimmer 2s infinite;
-    background: linear-gradient(90deg, transparent, rgba(59, 130, 246, 0.06), transparent);
+    background: linear-gradient(90deg, transparent, rgba(242, 183, 5, 0.06), transparent);
     background-size: 400% 100%;
   }
 

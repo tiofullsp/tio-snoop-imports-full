@@ -401,7 +401,7 @@ export function PagamentoClient({
                     {/* glow decorativo */}
                     <div className="pointer-events-none absolute -top-24 left-1/2 -translate-x-1/2 w-72 h-72 rounded-full bg-accent/20 blur-3xl" />
 
-                    <div className="relative p-5 rounded-3xl bg-gradient-to-br from-accent to-accent-light shadow-[0_8px_30px_-4px_rgba(59,130,246,0.45)]">
+                    <div className="relative p-5 rounded-3xl bg-gradient-to-br from-accent to-accent-light shadow-[0_8px_30px_-4px_rgba(242,183,5,0.45)]">
                       <div className="p-4 bg-white rounded-2xl">
                         {pixCode ? (
                           <QRCodeSVG

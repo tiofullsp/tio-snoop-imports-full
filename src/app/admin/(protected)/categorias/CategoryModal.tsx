@@ -305,7 +305,7 @@ export function CategoryModal({ category, parentOptions, onClose }: Props) {
                 label="Cor accent"
                 value={colorAccent}
                 onChange={(e) => setColorAccent(e.target.value)}
-                placeholder="#5B8DEF"
+                placeholder="#F2B705"
               />
             </div>
             <Input

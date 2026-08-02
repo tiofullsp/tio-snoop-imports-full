@@ -43,7 +43,7 @@ export const CartSummary = () => {
     return (
       <div className="flex flex-col items-center justify-center py-24 space-y-5 text-center">
         <div className="relative w-24 h-24">
-          <div className="absolute inset-0 bg-accent/5 rounded-full border border-accent/15 shadow-[0_0_40px_rgba(59, 130, 246,0.1)]" />
+          <div className="absolute inset-0 bg-accent/5 rounded-full border border-accent/15 shadow-[0_0_40px_rgba(242,183,5,0.1)]" />
           <div className="absolute inset-3 bg-dark-alt rounded-full flex items-center justify-center">
             <ShoppingBag size={32} className="text-muted" />
           </div>
@@ -53,7 +53,7 @@ export const CartSummary = () => {
           <p className="text-muted text-sm mt-1.5">Adicione produtos para continuar</p>
         </div>
         <Link href={routes.home}>
-          <Button variant="accent" size="lg" className="shadow-[0_6px_24px_rgba(59, 130, 246,0.3)]">
+          <Button variant="accent" size="lg" className="shadow-[0_6px_24px_rgba(242,183,5,0.3)]">
             Ver produtos
           </Button>
         </Link>
@@ -154,7 +154,7 @@ export const CartSummary = () => {
               variant="accent"
               fullWidth
               size="lg"
-              className="mt-1 shadow-[0_6px_24px_rgba(59, 130, 246,0.3)] hover:shadow-[0_8px_32px_rgba(59, 130, 246,0.45)]"
+              className="mt-1 shadow-[0_6px_24px_rgba(242,183,5,0.3)] hover:shadow-[0_8px_32px_rgba(242,183,5,0.45)]"
             >
               Continuar para checkout
             </Button>
