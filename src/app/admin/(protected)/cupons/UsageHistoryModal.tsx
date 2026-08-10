@@ -74,7 +74,7 @@ export function UsageHistoryModal({ coupon, onClose }: Props) {
             >
               <div className="flex items-center justify-between gap-3 flex-wrap">
                 <div className="flex items-center gap-2">
-                  <span className="font-mono text-sm font-bold text-accent">
+                  <span className="font-mono text-sm font-bold text-dark-text">
                     #{row.order_number}
                   </span>
                   <Badge
@@ -102,7 +102,7 @@ export function UsageHistoryModal({ coupon, onClose }: Props) {
                 </div>
                 <div>
                   <p className="text-muted">Total pago</p>
-                  <p className="text-accent font-bold">{formatCurrency(row.order_total)}</p>
+                  <p className="text-dark-text font-bold">{formatCurrency(row.order_total)}</p>
                 </div>
               </div>
             </div>

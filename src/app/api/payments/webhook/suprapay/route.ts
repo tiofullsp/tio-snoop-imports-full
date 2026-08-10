@@ -24,15 +24,28 @@ export async function POST(request: NextRequest) {
   // invalidar o hash.
   const rawBody = await request.text();
 
-  let payload: { event?: string; data?: { txid?: string; external_reference?: string } } = {};
+  let payload: {
+    event?: string;
+    data?: {
+      txid?: string;
+      external_reference?: string;
+      charge?: { txid?: string; external_reference?: string };
+    };
+  } = {};
   try {
     payload = JSON.parse(rawBody);
   } catch {
+    console.error("[webhook suprapay] corpo não é JSON válido:", rawBody.slice(0, 500));
     return NextResponse.json({ ok: true });
   }
 
-  const txid = payload.data?.txid;
-  if (!txid) return NextResponse.json({ ok: true });
+  // A doc da SupraPay mostra o txid direto em data.txid, mas o payload real
+  // entrega aninhado em data.charge.txid — suporta os dois formatos.
+  const txid = payload.data?.charge?.txid ?? payload.data?.txid;
+  if (!txid) {
+    console.error("[webhook suprapay] payload sem txid (nem data.txid nem data.charge.txid) — payload recebido:", JSON.stringify(payload).slice(0, 1000));
+    return NextResponse.json({ ok: true });
+  }
 
   const webhookSecret = process.env.SUPRAPAY_WEBHOOK_SECRET;
   if (process.env.NODE_ENV === "production" && !webhookSecret) {

@@ -7,6 +7,7 @@ import { ChevronRight, ExternalLink } from "lucide-react";
 import { routes } from "@/lib/routes";
 import { NotificationBell } from "@/components/admin/NotificationBell";
 import { AdminProfileMenu } from "@/components/admin/AdminProfileMenu";
+import { useBreadcrumbLabels } from "@/components/admin/BreadcrumbContext";
 
 interface Props {
   adminName: string;
@@ -28,7 +29,7 @@ const BREADCRUMB_MAP: Record<string, string> = {
   "/admin/feedbacks": "Feedbacks",
 };
 
-const buildBreadcrumbs = (pathname: string) => {
+const buildBreadcrumbs = (pathname: string, dynamicLabels: Record<string, string>) => {
   const parts = pathname.split("/").filter(Boolean);
   const crumbs: { label: string; href: string }[] = [
     { label: "Admin", href: "/admin" },
@@ -38,7 +39,9 @@ const buildBreadcrumbs = (pathname: string) => {
   for (const part of parts.slice(1)) {
     current += "/" + part;
     const fullPath = "/admin" + current;
-    const label = BREADCRUMB_MAP[fullPath] ?? capitalize(part);
+    // Rota dinâmica (ex: /admin/pedidos/<uuid>) — usa o rótulo publicado pela
+    // própria página (ver BreadcrumbContext) em vez do UUID cru da URL.
+    const label = BREADCRUMB_MAP[fullPath] ?? dynamicLabels[fullPath] ?? capitalize(part);
     crumbs.push({ label, href: fullPath });
   }
 
@@ -49,7 +52,8 @@ const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
 export const AdminTopbar = ({ adminName, adminEmail, adminRole }: Props) => {
   const pathname = usePathname();
-  const crumbs = buildBreadcrumbs(pathname);
+  const dynamicLabels = useBreadcrumbLabels();
+  const crumbs = buildBreadcrumbs(pathname, dynamicLabels);
 
   return (
     <header className="h-16 bg-dark-surface border-b border-dark-border flex items-center justify-between px-6 flex-shrink-0">

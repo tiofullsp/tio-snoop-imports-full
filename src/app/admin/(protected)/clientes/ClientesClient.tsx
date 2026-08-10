@@ -85,7 +85,7 @@ export function ClientesClient({ initialCustomers }: Props) {
                     </div>
                   </td>
                   <td className="px-4 py-3 text-sm text-dark-text hidden sm:table-cell">{c.total_orders}</td>
-                  <td className="px-4 py-3 font-bold text-accent">{formatCurrency(c.total_spent)}</td>
+                  <td className="px-4 py-3 font-bold text-dark-text">{formatCurrency(c.total_spent)}</td>
                   <td className="px-4 py-3 text-xs text-muted hidden md:table-cell">
                     {c.first_order_at ? formatDate(c.first_order_at) : "—"}
                   </td>

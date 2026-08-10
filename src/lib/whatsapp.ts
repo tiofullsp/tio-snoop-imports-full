@@ -61,10 +61,11 @@ export const generateStatusWhatsAppLink = ({
   storePhone?: string;
 }): string => {
   const statusMessages: Record<string, string> = {
-    payment_confirmed: `Olá ${customerName}! Confirmamos o pagamento do seu pedido *${orderNumber}*. Em breve vamos separar seu pedido! 📦`,
-    awaiting_separation: `Olá ${customerName}! Seu pedido *${orderNumber}* está sendo separado! 🔄`,
-    shipped: `Olá ${customerName}! Seu pedido *${orderNumber}* foi enviado! 🚚 Em breve você receberá o código de rastreamento.`,
-    delivered: `Olá ${customerName}! Confirmamos a entrega do seu pedido *${orderNumber}*. Esperamos que goste! ✅`,
+    payment_confirmed: `Olá ${customerName}! Confirmamos o pagamento do seu pedido *${orderNumber}*. Em breve liberamos o link de pagamento do frete! 📦`,
+    shipping_link_pending: `Olá ${customerName}! O link de pagamento do frete do seu pedido *${orderNumber}* já está disponível em Acompanhar Pedido. 🚚`,
+    shipping_paid: `Olá ${customerName}! Confirmamos o pagamento do frete do seu pedido *${orderNumber}*. Estamos preparando a etiqueta! 🔄`,
+    label_issued: `Olá ${customerName}! A etiqueta do seu pedido *${orderNumber}* foi emitida e o envio está pronto para postagem. 🏷️`,
+    completed: `Olá ${customerName}! Seu pedido *${orderNumber}* foi finalizado. Esperamos que goste! ✅`,
   };
   const text =
     statusMessages[newStatus] ||

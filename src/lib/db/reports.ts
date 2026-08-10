@@ -259,7 +259,7 @@ export async function getOperationalReportAdmin(): Promise<OperationalReportAdmi
     .from("orders")
     .select("id, order_number, customer_name, total")
     .eq("payment_status", "confirmed")
-    .in("status", ["payment_confirmed", "awaiting_validation", "awaiting_separation"]);
+    .in("status", ["payment_confirmed", "shipping_link_pending", "shipping_paid"]);
 
   if (error) throw error;
 

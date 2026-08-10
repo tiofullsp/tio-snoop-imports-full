@@ -17,7 +17,7 @@ export type Json =
 // ---------------------------------------------------------------------------
 
 export type DbProductAvailability = "in_stock" | "low_stock" | "out_of_stock" | "on_consultation";
-export type DbOrderStatus         = "pending_payment" | "payment_confirmed" | "awaiting_validation" | "awaiting_separation" | "shipped" | "delivered" | "cancelled";
+export type DbOrderStatus         = "pending_payment" | "payment_confirmed" | "shipping_link_pending" | "shipping_paid" | "label_issued" | "completed" | "cancelled";
 export type DbPaymentStatus       = "pending" | "confirmed" | "failed" | "refunded";
 export type DbPaymentMethod       = "pix" | "card";
 export type DbCouponType          = "percentage" | "fixed" | "free_shipping";
@@ -582,6 +582,13 @@ export type Database = {
           tracking_code:         string | null;
           tracking_url:          string | null;
           total:                 number;
+          payment_confirmed_at:       string | null;
+          shipping_payment_link:      string | null;
+          shipping_customer_name:     string | null;
+          shipping_order_id:          string | null;
+          shipping_label_url:         string | null;
+          shipping_label_storage_path: string | null;
+          label_issued_at:            string | null;
           notes:                 string | null;
           internal_notes:        string | null;
           created_at:            string;
@@ -615,6 +622,13 @@ export type Database = {
           tracking_code?:         string | null;
           tracking_url?:          string | null;
           total:                  number;
+          payment_confirmed_at?:       string | null;
+          shipping_payment_link?:      string | null;
+          shipping_customer_name?:     string | null;
+          shipping_order_id?:          string | null;
+          shipping_label_url?:         string | null;
+          shipping_label_storage_path?: string | null;
+          label_issued_at?:            string | null;
           notes?:                 string | null;
           internal_notes?:        string | null;
           created_at?:            string;
@@ -959,6 +973,9 @@ export type Database = {
           mercado_pago_public_key: string | null;
           mercado_pago_secret_key: string | null;  // SEGREDO — nunca enviar ao cliente
           maintenance_mode:        boolean;
+          shipping_payment_links:        Json; // [{id, label, url, is_active}], até 5
+          shipping_link_delay_pix_hours:  number;
+          shipping_link_delay_card_hours: number;
           updated_at:              string;
         };
         Insert: {
@@ -970,6 +987,9 @@ export type Database = {
           mercado_pago_public_key?: string | null;
           mercado_pago_secret_key?: string | null;
           maintenance_mode?:        boolean;
+          shipping_payment_links?:        Json;
+          shipping_link_delay_pix_hours?:  number;
+          shipping_link_delay_card_hours?: number;
           updated_at?:              string;
         };
         Update: Partial<Database["public"]["Tables"]["store_settings_private"]["Insert"]>;

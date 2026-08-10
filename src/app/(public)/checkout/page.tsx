@@ -2,15 +2,22 @@
 
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
-import { AlertCircle, ShieldCheck } from "lucide-react";
+import { AlertCircle, ShieldCheck, QrCode, CreditCard, Check } from "lucide-react";
 import { CheckoutSteps } from "@/components/public/CheckoutSteps";
 import { Container } from "@/components/common/SectionHeader";
 import { Button } from "@/components/common/Button";
 import { Input } from "@/components/common/Input";
+import { Select } from "@/components/common/Select";
 import { formatCurrency } from "@/lib/formatters";
 import { maskPhone, maskCpf } from "@/lib/utils";
+import { isValidCpf } from "@/lib/cpf";
+import { isValidEmail } from "@/lib/email";
+import { hasFullName, capitalizeWords } from "@/lib/name";
+import { BRAZILIAN_STATES } from "@/lib/brazilian-states";
 import { useCartStore } from "@/store/cart-store";
 import { createOrder } from "@/lib/actions/checkout";
+
+const STATE_OPTIONS = BRAZILIAN_STATES.map((s) => ({ value: s, label: s }));
 
 export default function CheckoutPage() {
   const router = useRouter();
@@ -23,12 +30,19 @@ export default function CheckoutPage() {
     getTotalPix,
     coupon_code,
     insurance_enabled,
+    clearCart,
   } = useCartStore();
 
   const [name,         setName]         = useState("");
   const [email,        setEmail]        = useState("");
   const [phone,        setPhone]        = useState("");
   const [cpf,          setCpf]          = useState("");
+  const [state,        setState]        = useState("");
+  const [paymentMethod, setPaymentMethod] = useState<"pix" | "card">("pix");
+
+  const [emailTouched, setEmailTouched] = useState(false);
+  const [cpfTouched,   setCpfTouched]   = useState(false);
+  const [nameTouched,  setNameTouched]  = useState(false);
 
   const [submitting,   setSubmitting]   = useState(false);
   const [submitError,  setSubmitError]  = useState("");
@@ -38,13 +52,38 @@ export default function CheckoutPage() {
   const insurance = getInsuranceValue();
   const total     = getTotalPix();
 
+  // Mesma regra do servidor (createOrder) — o botão só libera quando tudo
+  // aqui já bateria na validação de lá, pra nunca deixar o cliente clicar
+  // "Finalizar pedido" com um dado que o backend vai recusar de qualquer jeito.
+  const isFormValid =
+    hasFullName(name) &&
+    isValidCpf(cpf) &&
+    isValidEmail(email) &&
+    phone.trim() !== "" &&
+    state.trim() !== "" &&
+    items.length > 0;
+
+  const nameError = nameTouched && name.trim() !== "" && !hasFullName(name)
+    ? "Coloque nome e sobrenome."
+    : undefined;
+  const emailError = emailTouched && email.trim() !== "" && !isValidEmail(email)
+    ? "E-mail inválido."
+    : undefined;
+  const cpfError = cpfTouched && cpf.trim() !== "" && !isValidCpf(cpf)
+    ? "CPF inválido."
+    : undefined;
+
   const handleSubmit = async () => {
     setSubmitError("");
 
-    // Validação client-side rápida
-    if (!name.trim())         { setSubmitError("Nome é obrigatório.");        return; }
-    if (!email.trim())        { setSubmitError("E-mail é obrigatório.");      return; }
+    // Defesa em profundidade — o botão já fica desabilitado nesse caso, isso
+    // aqui só protege contra submit via Enter ou outro caminho que escape do
+    // botão.
+    if (!hasFullName(name))   { setSubmitError("Coloque nome e sobrenome.");   return; }
+    if (!isValidCpf(cpf))     { setSubmitError("CPF inválido.");              return; }
+    if (!isValidEmail(email)) { setSubmitError("E-mail inválido.");           return; }
     if (!phone.trim())        { setSubmitError("Telefone é obrigatório.");    return; }
+    if (!state.trim())        { setSubmitError("Estado é obrigatório.");      return; }
     if (items.length === 0)   { setSubmitError("Seu carrinho está vazio.");   return; }
 
     setSubmitting(true);
@@ -54,6 +93,8 @@ export default function CheckoutPage() {
       email,
       phone,
       cpf,
+      state,
+      paymentMethod,
       items: items.map((i) => ({
         product_id: i.product_id,
         variant_size_id: i.variant_size_id,
@@ -70,6 +111,7 @@ export default function CheckoutPage() {
       return;
     }
 
+    clearCart();
     router.push(`/pagamento/${result.orderId}`);
   };
 
@@ -88,22 +130,95 @@ export default function CheckoutPage() {
             <div className="bg-dark-surface rounded-2xl border border-dark-border p-6 space-y-4">
               <h2 className="text-base font-bold text-dark-text">Dados pessoais</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <Input label="Nome completo" value={name} onChange={(e) => setName(e.target.value)} placeholder="Seu nome completo" />
-                <Input label="CPF" value={cpf} onChange={(e) => setCpf(maskCpf(e.target.value))} placeholder="000.000.000-00" maxLength={14} />
-                <Input label="E-mail" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="seu@email.com" />
-                <Input label="Telefone / WhatsApp" value={phone} onChange={(e) => setPhone(maskPhone(e.target.value))} placeholder="(00) 00000-0000" maxLength={15} />
+                <Input
+                  required
+                  label="Nome completo"
+                  value={name}
+                  onChange={(e) => setName(capitalizeWords(e.target.value))}
+                  onBlur={() => setNameTouched(true)}
+                  error={nameError}
+                  placeholder="Nome e sobrenome"
+                />
+                <Input
+                  required
+                  label="CPF"
+                  value={cpf}
+                  onChange={(e) => setCpf(maskCpf(e.target.value))}
+                  onBlur={() => setCpfTouched(true)}
+                  error={cpfError}
+                  placeholder="000.000.000-00"
+                  maxLength={14}
+                />
+                <Input
+                  required
+                  label="E-mail"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  onBlur={() => setEmailTouched(true)}
+                  error={emailError}
+                  placeholder="seu@email.com"
+                />
+                <Input required label="Telefone / WhatsApp" value={phone} onChange={(e) => setPhone(maskPhone(e.target.value))} placeholder="(00) 00000-0000" maxLength={15} />
+                <Select
+                  required
+                  label="Estado"
+                  value={state}
+                  onChange={setState}
+                  options={STATE_OPTIONS}
+                  placeholder="Selecione seu estado"
+                />
               </div>
             </div>
 
-            {/* Payment method */}
+            {/* Payment method — escolhido aqui, não na tela seguinte: assim o
+                site só gera a cobrança do método que o cliente realmente
+                quer (evita criar um Pix à toa na PyxGate quando o cliente já
+                vai pagar no cartão). */}
             <div className="bg-dark-surface rounded-2xl border border-dark-border p-6 space-y-3">
               <h2 className="text-base font-bold text-dark-text">Forma de pagamento</h2>
-              <div className="flex items-center gap-3 p-4 rounded-xl border border-accent/40 bg-accent/5">
-                <ShieldCheck size={18} className="text-accent flex-shrink-0" />
-                <p className="text-sm text-dark-text">
-                  Você escolhe entre <span className="font-semibold">Pix</span> ou{" "}
-                  <span className="font-semibold">cartão de crédito</span> na próxima tela, sem sair do nosso
-                  site — aprovação automática.
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => setPaymentMethod("pix")}
+                  className={[
+                    "relative flex flex-col items-center gap-2 p-4 rounded-xl border text-center transition-all",
+                    paymentMethod === "pix"
+                      ? "border-accent bg-accent/10"
+                      : "border-dark-border-light hover:border-accent/40",
+                  ].join(" ")}
+                >
+                  {paymentMethod === "pix" && (
+                    <span className="absolute top-2 right-2 w-4 h-4 rounded-full bg-accent flex items-center justify-center">
+                      <Check size={11} className="text-dark-bg" />
+                    </span>
+                  )}
+                  <QrCode size={22} className={paymentMethod === "pix" ? "text-accent" : "text-muted"} />
+                  <span className="text-sm font-semibold text-dark-text">Pix</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPaymentMethod("card")}
+                  className={[
+                    "relative flex flex-col items-center gap-2 p-4 rounded-xl border text-center transition-all",
+                    paymentMethod === "card"
+                      ? "border-accent bg-accent/10"
+                      : "border-dark-border-light hover:border-accent/40",
+                  ].join(" ")}
+                >
+                  {paymentMethod === "card" && (
+                    <span className="absolute top-2 right-2 w-4 h-4 rounded-full bg-accent flex items-center justify-center">
+                      <Check size={11} className="text-dark-bg" />
+                    </span>
+                  )}
+                  <CreditCard size={22} className={paymentMethod === "card" ? "text-accent" : "text-muted"} />
+                  <span className="text-sm font-semibold text-dark-text">Cartão de crédito</span>
+                </button>
+              </div>
+              <div className="flex items-center gap-3 p-3 rounded-xl border border-accent/40 bg-accent/5">
+                <ShieldCheck size={16} className="text-accent flex-shrink-0" />
+                <p className="text-xs text-dark-text">
+                  Sem sair do nosso site — aprovação automática.
                 </p>
               </div>
             </div>
@@ -137,7 +252,7 @@ export default function CheckoutPage() {
               <div className="border-t border-dark-border pt-3">
                 <div className="flex justify-between">
                   <span className="text-sm font-semibold text-dark-text">Total a pagar</span>
-                  <span className="text-lg font-bold text-accent">{formatCurrency(total)}</span>
+                  <span className="text-lg font-bold text-dark-text">{formatCurrency(total)}</span>
                 </div>
               </div>
 
@@ -154,6 +269,7 @@ export default function CheckoutPage() {
                 fullWidth
                 size="lg"
                 isLoading={submitting}
+                disabled={!isFormValid}
                 onClick={handleSubmit}
               >
                 Finalizar pedido

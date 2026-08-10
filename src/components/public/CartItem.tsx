@@ -83,7 +83,7 @@ export const CartItem = ({ item }: CartItemProps) => {
 
           {/* Preço */}
           <div className="text-right">
-            <div className="text-sm font-bold text-accent">
+            <div className="text-sm font-bold text-dark-text">
               {formatCurrency(item.price_pix * item.quantity)}
             </div>
             {item.quantity > 1 && (

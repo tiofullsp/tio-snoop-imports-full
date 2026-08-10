@@ -53,6 +53,13 @@ export const getPublicStoreSettings = cache(async (): Promise<PublicStoreSetting
   }
 });
 
+export interface ShippingPaymentLinkSetting {
+  id: string;
+  label: string;
+  url: string;
+  is_active: boolean;
+}
+
 export interface AdminStoreSettings {
   store_name: string;
   logo_url?: string;
@@ -64,6 +71,9 @@ export interface AdminStoreSettings {
   // Pontos percentuais inteiros (25 = 25%) — o que o admin digita no formulário.
   insurance_percentage: number;
   maintenance_mode: boolean;
+  shipping_payment_links: ShippingPaymentLinkSetting[];
+  shipping_link_delay_pix_hours: number;
+  shipping_link_delay_card_hours: number;
 }
 
 // Leitura completa (público + privado) para o painel admin — usa service client
@@ -72,14 +82,21 @@ export async function getAdminStoreSettings(): Promise<AdminStoreSettings> {
 
   const [{ data: pub, error: pubError }, { data: priv, error: privError }] = await Promise.all([
     service.from("store_settings_public").select("*").eq("lock", true).single(),
-    service.from("store_settings_private").select("maintenance_mode").eq("lock", true).single(),
+    service
+      .from("store_settings_private")
+      .select("maintenance_mode, shipping_payment_links, shipping_link_delay_pix_hours, shipping_link_delay_card_hours")
+      .eq("lock", true)
+      .single(),
   ]);
 
   if (pubError) throw pubError;
   if (privError) throw privError;
 
   const p = pub as DbStoreSettingsPublic;
-  const s = priv as Pick<DbStoreSettingsPrivate, "maintenance_mode">;
+  const s = priv as Pick<
+    DbStoreSettingsPrivate,
+    "maintenance_mode" | "shipping_payment_links" | "shipping_link_delay_pix_hours" | "shipping_link_delay_card_hours"
+  >;
 
   return {
     store_name: p.store_name,
@@ -91,6 +108,9 @@ export async function getAdminStoreSettings(): Promise<AdminStoreSettings> {
     cnpj_cpf: p.cnpj_cpf ?? undefined,
     insurance_percentage: Number(p.insurance_percentage),
     maintenance_mode: s.maintenance_mode,
+    shipping_payment_links: (s.shipping_payment_links as unknown as ShippingPaymentLinkSetting[] | null) ?? [],
+    shipping_link_delay_pix_hours: Number(s.shipping_link_delay_pix_hours),
+    shipping_link_delay_card_hours: Number(s.shipping_link_delay_card_hours),
   };
 }
 

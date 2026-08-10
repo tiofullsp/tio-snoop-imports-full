@@ -2,9 +2,11 @@
 
 import { createServiceClient } from "@/lib/supabase/server";
 import { resolveBasePrice, calculateQuantityDiscountPrice } from "@/lib/pricing";
-import { createPaymentPreferenceForOrder } from "@/lib/payments/create-preference";
 import { getPublicStoreSettings } from "@/lib/db/settings";
 import { digitsOnly, isValidCpf } from "@/lib/cpf";
+import { isValidEmail } from "@/lib/email";
+import { hasFullName } from "@/lib/name";
+import { BRAZILIAN_STATES } from "@/lib/brazilian-states";
 
 // ---------------------------------------------------------------------------
 // O front-end nunca é fonte de verdade para preço/estoque/desconto. O
@@ -23,7 +25,12 @@ export interface CheckoutFormData {
   name: string;
   email: string;
   phone: string;
-  cpf?: string;
+  cpf: string;
+  state: string;
+  // Escolhido pelo cliente já no checkout (não mais só na tela de pagamento)
+  // — assim só a cobrança do método escolhido é criada na PyxGate, evitando
+  // gerar um Pix à toa quando o cliente já vai pagar no cartão.
+  paymentMethod: "pix" | "card";
   items: CheckoutItemInput[];
   coupon_code?: string;
   insurance_enabled?: boolean;
@@ -311,12 +318,25 @@ export async function createOrder(
 ): Promise<CreateOrderResult | { error: string }> {
   // Validação server-side (defesa em profundidade)
   if (!data.name.trim())         return { error: "Nome é obrigatório." };
+  if (!hasFullName(data.name))   return { error: "Coloque nome e sobrenome." };
   if (!data.email.trim())        return { error: "E-mail é obrigatório." };
+  // Formato inválido só seria pego pelo gateway de pagamento lá no passo 9,
+  // depois de já ter criado pedido/cliente/itens/pagamento no banco — validar
+  // aqui evita pedidos-fantasma sem forma nenhuma de pagar.
+  if (!isValidEmail(data.email)) return { error: "E-mail inválido." };
   if (!data.phone.trim())        return { error: "Telefone é obrigatório." };
   if (!data.items || data.items.length === 0) return { error: "Carrinho vazio." };
-  // CPF é opcional no checkout, mas se informado precisa ser válido — usado
-  // depois na busca pública de pedidos por CPF (tela Acompanhar Pedido).
-  if (data.cpf?.trim() && !isValidCpf(data.cpf)) return { error: "CPF inválido." };
+  // CPF agora é obrigatório: é a chave usada depois pra achar o pedido em
+  // "Acompanhar Pedido" e pra confirmar o pagamento do frete — sem ele o
+  // cliente fica sem acesso a essas telas.
+  if (!data.cpf?.trim()) return { error: "CPF é obrigatório." };
+  if (!isValidCpf(data.cpf)) return { error: "CPF inválido." };
+  if (!data.state?.trim() || !(BRAZILIAN_STATES as readonly string[]).includes(data.state.trim())) {
+    return { error: "Selecione um estado válido." };
+  }
+  if (data.paymentMethod !== "pix" && data.paymentMethod !== "card") {
+    return { error: "Selecione a forma de pagamento." };
+  }
 
   const service = createServiceClient();
 
@@ -376,15 +396,16 @@ export async function createOrder(
         customer_name:         data.name.trim(),
         customer_email:        data.email.trim().toLowerCase(),
         customer_phone:        data.phone.trim(),
-        payment_method:        "pix" as const,
-        // Endereço não é mais coletado no checkout — o admin combina o envio
-        // (Shopee) e preenche isso depois, se precisar.
+        payment_method:        data.paymentMethod,
+        // Endereço completo não é mais coletado no checkout — o admin combina
+        // o envio (Shopee) e preenche isso depois, se precisar. O estado é a
+        // exceção: coletado no checkout (obrigatório) por extenso.
         shipping_street:       "",
         shipping_number:       "",
         shipping_complement:   null,
         shipping_neighborhood: "",
         shipping_city:         "",
-        shipping_state:        "",
+        shipping_state:        data.state.trim(),
         shipping_zip_code:     "",
         subtotal:              subtotalPix,
         coupon_code:           coupon?.code ?? null,
@@ -461,11 +482,13 @@ export async function createOrder(
         .eq("id", coupon.id);
     }
 
-    // 9. Cria a preferência de pagamento (provider ativo — stub por enquanto)
-    // e grava external_id/pix_code reais em `payments`.
-    const preferenceResult = await createPaymentPreferenceForOrder(service, orderId);
-    if ("error" in preferenceResult) throw new Error(preferenceResult.error);
-
+    // 9. A preferência de pagamento (chamada à gateway — PyxGate leva uns 5s só
+    // pra criar a cobrança Pix) NÃO é criada aqui: geraria uma espera de 10s+
+    // com o botão "Finalizar pedido" travado, sem nenhum feedback pro
+    // cliente. Em vez disso, a página /pagamento/[orderId] chama
+    // /api/payments/create-preference assim que carrega, e mostra "Gerando
+    // seu Pix..." nesse meio tempo — mesma chamada, só que numa tela que já
+    // avisa o que está acontecendo.
     return { orderId, orderNumber, total };
   } catch (err: unknown) {
     // Erros do Supabase (PostgrestError) são objetos simples, não instâncias

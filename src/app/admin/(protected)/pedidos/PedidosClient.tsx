@@ -1,13 +1,13 @@
 "use client";
 
-import React, { useState, useTransition } from "react";
+import React, { useState, useEffect, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Eye } from "lucide-react";
 import { SearchInput } from "@/components/common/SearchInput";
 import { Select } from "@/components/common/Select";
 import { OrderStatusSelect } from "@/components/admin/OrderStatusSelect";
-import { formatCurrency, formatDate } from "@/lib/formatters";
+import { formatCurrency, formatDate, formatTime } from "@/lib/formatters";
 import { updateOrderStatus } from "@/lib/actions/orders";
 import { routes } from "@/lib/routes";
 import { ORDER_STATUS_LABELS } from "@/types";
@@ -16,13 +16,13 @@ import type { AdminOrder } from "@/lib/db/orders";
 
 const STATUS_OPTIONS = [
   { value: "", label: "Todos os status" },
-  { value: "pending_payment",      label: ORDER_STATUS_LABELS.pending_payment },
-  { value: "payment_confirmed",    label: ORDER_STATUS_LABELS.payment_confirmed },
-  { value: "awaiting_validation",  label: ORDER_STATUS_LABELS.awaiting_validation },
-  { value: "awaiting_separation",  label: ORDER_STATUS_LABELS.awaiting_separation },
-  { value: "shipped",              label: ORDER_STATUS_LABELS.shipped },
-  { value: "delivered",            label: ORDER_STATUS_LABELS.delivered },
-  { value: "cancelled",            label: ORDER_STATUS_LABELS.cancelled },
+  { value: "pending_payment",       label: ORDER_STATUS_LABELS.pending_payment },
+  { value: "payment_confirmed",     label: ORDER_STATUS_LABELS.payment_confirmed },
+  { value: "shipping_link_pending", label: ORDER_STATUS_LABELS.shipping_link_pending },
+  { value: "shipping_paid",         label: ORDER_STATUS_LABELS.shipping_paid },
+  { value: "label_issued",          label: ORDER_STATUS_LABELS.label_issued },
+  { value: "completed",             label: ORDER_STATUS_LABELS.completed },
+  { value: "cancelled",             label: ORDER_STATUS_LABELS.cancelled },
 ];
 
 interface Props {
@@ -35,6 +35,28 @@ export function PedidosClient({ initialOrders }: Props) {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
 
+  // Mesmo motivo do PedidoClient (detalhe do pedido): status muda pelo lado
+  // do cliente a qualquer momento, o admin não deveria precisar de F5 pra ver.
+  useEffect(() => {
+    const interval = setInterval(() => router.refresh(), 5_000);
+    const handleVisible = () => {
+      if (document.visibilityState === "visible") router.refresh();
+    };
+    document.addEventListener("visibilitychange", handleVisible);
+    window.addEventListener("focus", handleVisible);
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener("visibilitychange", handleVisible);
+      window.removeEventListener("focus", handleVisible);
+    };
+  }, [router]);
+
+  // "Aguardando pagamento", "Pedido Finalizado" e "Cancelado" só aparecem na
+  // lista quando o admin filtra especificamente por esse status — na visão
+  // geral (sem filtro) ficam escondidos, pra não poluir a lista com pedidos
+  // que ainda não pagaram, já foram concluídos ou foram cancelados.
+  const HIDDEN_BY_DEFAULT: OrderStatus[] = ["pending_payment", "completed", "cancelled"];
+
   const filtered = initialOrders.filter((o) => {
     const q = search.toLowerCase();
     const matchSearch =
@@ -42,7 +64,9 @@ export function PedidosClient({ initialOrders }: Props) {
       o.order_number.toLowerCase().includes(q) ||
       o.customer_name.toLowerCase().includes(q) ||
       o.customer_email.toLowerCase().includes(q);
-    const matchStatus = !statusFilter || o.status === statusFilter;
+    const matchStatus = statusFilter
+      ? o.status === statusFilter
+      : !HIDDEN_BY_DEFAULT.includes(o.status);
     return matchSearch && matchStatus;
   });
 
@@ -107,11 +131,12 @@ export function PedidosClient({ initialOrders }: Props) {
                   </td>
                   <td className="px-4 py-3 text-xs text-muted whitespace-nowrap">
                     {formatDate(order.created_at)}
+                    <div className="text-[11px] text-muted/70">{formatTime(order.created_at)}</div>
                   </td>
                   <td className="px-4 py-3 text-xs text-muted">
                     {order.item_count} {order.item_count === 1 ? "item" : "itens"}
                   </td>
-                  <td className="px-4 py-3 font-bold text-accent whitespace-nowrap">
+                  <td className="px-4 py-3 font-bold text-dark-text whitespace-nowrap">
                     {formatCurrency(order.total)}
                   </td>
                   <td className="px-4 py-3">

@@ -3,6 +3,7 @@ export const routes = {
   produtos: "/produtos",
   categoria: (slug: string) => `/categoria/${slug}`,
   produto: (slug: string) => `/produtos/${slug}`,
+  busca: (q?: string) => (q ? `/busca?q=${encodeURIComponent(q)}` : "/busca"),
   carrinho: "/carrinho",
   checkout: "/checkout",
   pagamento: (orderId: string) => `/pagamento/${orderId}`,

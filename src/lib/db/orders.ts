@@ -1,4 +1,5 @@
 import { createServiceClient } from "@/lib/supabase/server";
+import { maybeReleaseShippingLink, maybeAutoCompleteOrder } from "@/lib/orders/shipping-link";
 import type {
   Order, OrderItem, OrderStatus, OrderStatusHistory,
   PaymentStatus, PaymentMethod,
@@ -48,6 +49,8 @@ const ORDER_DETAIL_FIELDS = `
   total, subtotal, coupon_code, coupon_discount, shipping_value, shipping_service,
   insurance_enabled, insurance_value,
   tracking_code, tracking_url,
+  payment_confirmed_at, shipping_payment_link, shipping_customer_name, shipping_order_id,
+  shipping_label_url, shipping_label_storage_path, label_issued_at,
   shipping_street, shipping_number, shipping_complement, shipping_neighborhood,
   shipping_city, shipping_state, shipping_zip_code,
   notes, internal_notes, created_at, updated_at,
@@ -58,7 +61,8 @@ const ORDER_DETAIL_FIELDS = `
   ),
   order_status_history (
     id, order_id, previous_status, new_status, changed_by, notes, created_at
-  )
+  ),
+  customers ( cpf_cnpj )
 ` as const;
 
 // ---------------------------------------------------------------------------
@@ -68,6 +72,7 @@ const ORDER_DETAIL_FIELDS = `
 type DbOrderRow = DbOrder & {
   order_items?: Array<DbOrderItem | { id: string }>;
   order_status_history?: DbOrderStatusHistory[];
+  customers?: { cpf_cnpj: string | null } | null;
 };
 
 function toOrderItem(row: DbOrderItem): OrderItem {
@@ -120,6 +125,7 @@ function toAdminOrder(row: DbOrderRow, withRelations = false): AdminOrder {
     customer_name:         row.customer_name,
     customer_phone:        row.customer_phone,
     customer_email:        row.customer_email,
+    customer_cpf:          row.customers?.cpf_cnpj ?? undefined,
     status:                row.status as OrderStatus,
     payment_status:        row.payment_status as PaymentStatus,
     payment_method:        row.payment_method as PaymentMethod,
@@ -141,6 +147,13 @@ function toAdminOrder(row: DbOrderRow, withRelations = false): AdminOrder {
     tracking_code:         row.tracking_code ?? undefined,
     tracking_url:          row.tracking_url ?? undefined,
     total:                 Number(row.total),
+    payment_confirmed_at:        row.payment_confirmed_at ?? undefined,
+    shipping_payment_link:       row.shipping_payment_link ?? undefined,
+    shipping_customer_name:      row.shipping_customer_name ?? undefined,
+    shipping_order_id:           row.shipping_order_id ?? undefined,
+    shipping_label_url:          row.shipping_label_url ?? undefined,
+    shipping_label_storage_path: row.shipping_label_storage_path ?? undefined,
+    label_issued_at:             row.label_issued_at ?? undefined,
     notes:                 row.notes ?? undefined,
     internal_notes:        row.internal_notes ?? undefined,
     items,
@@ -183,7 +196,43 @@ export async function getOrderByIdAdmin(id: string): Promise<AdminOrder | null> 
     throw error;
   }
 
-  return data ? toAdminOrder(data as DbOrderRow, true) : null;
+  if (!data) return null;
+
+  const row = data as DbOrderRow;
+
+  // Sem cron: abrir o pedido no admin também dispara a checagem de liberação
+  // do link de frete — ver shipping-link.ts.
+  const release = await maybeReleaseShippingLink(service, {
+    id: row.id,
+    status: row.status,
+    payment_method: row.payment_method,
+    payment_confirmed_at: row.payment_confirmed_at,
+  });
+  if (release) {
+    row.status = release.status;
+    row.shipping_payment_link = release.shipping_payment_link;
+  }
+
+  // Sem cron: idem acima, mas pra checar se passaram 24h desde a etiqueta
+  // emitida sem o cliente confirmar — ver shipping-link.ts.
+  const autoComplete = await maybeAutoCompleteOrder(service, {
+    id: row.id,
+    status: row.status,
+    label_issued_at: row.label_issued_at,
+  });
+  if (autoComplete) row.status = autoComplete.status;
+
+  // Bucket privado (private-documents) — a URL salva é uma signed URL que
+  // expira (ver /api/admin/upload-label). Regenera a cada carregamento da
+  // página em vez de confiar na URL persistida, pra nunca quebrar o link.
+  if (row.shipping_label_storage_path) {
+    const { data: signed } = await service.storage
+      .from("private-documents")
+      .createSignedUrl(row.shipping_label_storage_path, 60 * 60 * 24 * 7);
+    if (signed) row.shipping_label_url = signed.signedUrl;
+  }
+
+  return toAdminOrder(row, true);
 }
 
 export interface OrderPaymentInfo {

@@ -200,7 +200,7 @@ export const mockOperationalReport: OperationalReport = {
       customer_name: "Juliana Ferreira",
       customer_phone: "(11) 98765-4321",
       customer_email: "juliana.ferreira@email.com",
-      status: "awaiting_separation",
+      status: "shipping_paid",
       payment_status: "confirmed",
       payment_method: "pix",
       shipping_street: "Rua das Flores",

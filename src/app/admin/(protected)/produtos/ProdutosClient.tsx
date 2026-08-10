@@ -2,6 +2,7 @@
 
 import React, { useState, useOptimistic, useTransition } from "react";
 import Link from "next/link";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import Image from "next/image";
 import { Plus, Edit2, Eye, Copy, Trash2, AlertTriangle, Loader2, GripVertical } from "lucide-react";
 import { Button } from "@/components/common/Button";
@@ -30,7 +31,22 @@ export function ProdutosClient({ initialProducts, categoryOptions }: Props) {
   const [products, setOptimisticProducts] = useOptimistic(initialProducts);
   const [, startTransition] = useTransition();
   const [search, setSearch] = useState("");
-  const [categoryFilter, setCategoryFilter] = useState("");
+
+  // Categoria selecionada vive na URL (?categoria=...), não só em state local
+  // — assim, ao entrar num produto pra editar e voltar, o filtro continua
+  // selecionado em vez de resetar pra "Todas as categorias".
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const categoryFilter = searchParams.get("categoria") ?? "";
+  const setCategoryFilter = (value: string) => {
+    const params = new URLSearchParams(searchParams.toString());
+    if (value) params.set("categoria", value);
+    else params.delete("categoria");
+    const query = params.toString();
+    router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
+  };
+
   const [error, setError] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -274,7 +290,7 @@ export function ProdutosClient({ initialProducts, categoryOptions }: Props) {
                       {catLabel}
                     </td>
                     {/* Preço */}
-                    <td className="px-4 py-3 font-bold text-accent">
+                    <td className="px-4 py-3 font-bold text-dark-text">
                       {formatCurrency(product.price_pix)}
                     </td>
                     {/* Ativo */}

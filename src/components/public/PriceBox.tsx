@@ -38,10 +38,10 @@ export const PriceBox = ({
         <span
           className={
             size === "lg"
-              ? "text-3xl font-bold text-accent"
+              ? "text-3xl font-bold text-dark-text"
               : size === "sm"
-              ? "text-xl font-bold text-accent"
-              : "text-2xl font-bold text-accent"
+              ? "text-xl font-bold text-dark-text"
+              : "text-2xl font-bold text-dark-text"
           }
         >
           {formatCurrency(pricePix)}

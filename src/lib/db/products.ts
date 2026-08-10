@@ -177,6 +177,24 @@ export async function getProductsByCategoryIds(categoryIds: string[]): Promise<P
   return products;
 }
 
+// Todos os produtos ativos, de qualquer categoria — usado pela busca (/busca),
+// que precisa procurar no catálogo inteiro, não só numa categoria por vez.
+export async function getAllActiveProducts(): Promise<Product[]> {
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from("products")
+    .select(PRODUCT_FIELDS)
+    .eq("is_active", true)
+    .order("display_order", { ascending: true });
+
+  if (error) throw error;
+
+  const products = (data ?? []).map((row) => toProduct(row as ProductRowWithRelations));
+  await attachStockItemVariants(supabase, products);
+  return products;
+}
+
 // Produto pelo slug (para página /produtos/[slug]) — inclui categoria para breadcrumb e badge
 export async function getProductBySlug(slug: string): Promise<Product | null> {
   const supabase = await createClient();

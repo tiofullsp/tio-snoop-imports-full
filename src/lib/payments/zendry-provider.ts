@@ -11,10 +11,10 @@ import type {
 // IMPORTANTE — histórico: a primeira versão desse provider usava o checkout
 // hospedado (POST /v1/charges → link em pay.zendry.com). Trocamos pra Pix
 // embutido na própria página (POST /v1/pix/qrcodes) a pedido do dono da loja,
-// que não queria o cliente saindo do site pra pagar. Pagamento por cartão
-// (POST /v1/card_payments) é tratado à parte, em src/lib/actions/card-payment.ts
-// — não faz parte da interface CreatePreferenceInput/Result porque acontece
-// sob demanda (formulário na tela de pagamento), não na criação do pedido.
+// que não queria o cliente saindo do site pra pagar. Cartão (POST
+// /v1/card_payments) usava a Zendry também, mas src/lib/actions/
+// card-payment.ts foi migrado pra PYX Gate — este arquivo só fica ativo
+// como rollback de Pix agora.
 //
 // Só entra em uso quando ZENDRY_CLIENT_ID e ZENDRY_CLIENT_SECRET estão
 // preenchidos (ver getPaymentProvider em ./index.ts).
@@ -30,8 +30,7 @@ function getCredentials(): { clientId: string; clientSecret: string } {
 }
 
 // Cache do token em memória — válido por 30min (expires_in: 1800), renovado
-// com 60s de folga. Compartilhado com src/lib/actions/card-payment.ts via
-// getZendryAccessToken(), pra não duplicar a lógica de autenticação.
+// com 60s de folga.
 let cachedToken: { accessToken: string; expiresAt: number } | null = null;
 
 export async function getZendryAccessToken(): Promise<string> {

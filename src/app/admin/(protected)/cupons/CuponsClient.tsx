@@ -229,7 +229,7 @@ export function CuponsClient({ initialCoupons }: Props) {
                       </td>
 
                       {/* Valor */}
-                      <td className="px-4 py-3 font-bold text-accent whitespace-nowrap">
+                      <td className="px-4 py-3 font-bold text-dark-text whitespace-nowrap">
                         {formatValue(coupon.type, coupon.value)}
                       </td>
 

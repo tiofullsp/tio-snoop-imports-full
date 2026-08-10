@@ -2,22 +2,28 @@
 
 import { createServiceClient } from "@/lib/supabase/server";
 import { processPaymentResult } from "@/lib/payments/process";
-import { getZendryAccessToken, ZENDRY_API_BASE } from "@/lib/payments/zendry-provider";
+import { centsFromReais } from "@/lib/payments/pyxgate-provider";
 import { computeCardTotalForInstallments } from "@/lib/pricing";
 import { digitsOnly } from "@/lib/cpf";
 
-// Pagamento por cartão via Zendry (POST /v1/card_payments) — diferente do
-// Pix (gerado automaticamente na criação do pedido), o cartão só acontece
-// quando o cliente escolhe essa aba e preenche o formulário na tela de
-// pagamento. Chamado direto do nosso servidor com o Bearer secreto — os
-// dados do cartão NUNCA devem ser logados, impressos em erro, nem salvos em
-// nenhuma coluna/metadata (só os campos seguros da resposta: últimos
-// dígitos, bandeira, código de autorização).
+// Pagamento por cartão via PYX Gate (POST /v1/payments, payment_method:
+// "card") — diferente do Pix (gerado automaticamente na criação do pedido),
+// o cartão só acontece quando o cliente escolhe essa aba e preenche o
+// formulário na tela de pagamento. Chamado direto do nosso servidor com o
+// Bearer secreto — os dados do cartão NUNCA devem ser logados, impressos em
+// erro, nem salvos em nenhuma coluna/metadata (só os campos seguros da
+// resposta).
 //
-// 3DS é obrigatório (confirmado testando de verdade: sem threeds_data a API
-// sempre recusa com "Threeds data is required") — o desafio roda no
-// navegador (ZendrySDKThreeds.init_threeds, ver PagamentoClient.tsx) e o
-// resultado (three_ds_data) chega pronto aqui, só repassado pra API.
+// IMPORTANTE: a PYX Gate confirmou (suporte, 2026-08) que não existe
+// tokenização client-side — número/validade/CVV trafegam direto no corpo
+// desta requisição, o que coloca a loja no escopo de responsabilidade
+// PCI-DSS. Decisão consciente do dono da loja, ciente do risco.
+//
+// 3DS é obrigatório — o desafio roda no navegador via
+// ZendrySDKThreeds.init_threeds() (a PYX Gate roteia o desafio 3DS de cartão
+// pela Zendry por trás, ver src/app/api/payments/pyxgate-3ds-token) e o
+// resultado (three_ds_data) chega pronto aqui, só repassado como
+// threeds_data pra API da PYX Gate.
 
 export interface CardPaymentThreedsData {
   operation_session_id: string;
@@ -35,6 +41,16 @@ export interface CardPaymentThreedsData {
   zip_code: string;
 }
 
+export interface CardBillingAddress {
+  zipCode: string;
+  street: string;
+  number: string;
+  complement: string;
+  neighborhood: string;
+  city: string;
+  state: string;
+}
+
 export interface CardPaymentInput {
   orderId: string;
   cardNumber: string;
@@ -43,18 +59,13 @@ export interface CardPaymentInput {
   cardHolderName: string;
   cardHolderDocument: string;
   installments: number;
+  billingAddress: CardBillingAddress;
   threedsData: CardPaymentThreedsData;
 }
 
-interface ZendryCardPaymentResponse {
-  card_payment: {
-    muid: string;
-    status: "accepted" | "reject" | "waiting_3ds_authentication" | string;
-    transaction_status?: string;
-    last_digits?: string;
-    brand?: string;
-    authorization_code?: string;
-  };
+interface PyxGateCardPaymentResponse {
+  id: string;
+  status: "paid" | "pending" | "failed" | string;
 }
 
 function validate(input: CardPaymentInput): string | null {
@@ -65,6 +76,10 @@ function validate(input: CardPaymentInput): string | null {
   if (!input.cardHolderName.trim()) return "Nome impresso no cartão é obrigatório.";
   if (!digitsOnly(input.cardHolderDocument)) return "CPF do titular do cartão é obrigatório.";
   if (input.installments < 1 || input.installments > 12) return "Número de parcelas inválido.";
+  const addr = input.billingAddress;
+  if (!addr || digitsOnly(addr.zipCode).length !== 8 || !addr.street.trim() || !addr.number.trim() || !addr.neighborhood.trim() || !addr.city.trim() || !addr.state.trim()) {
+    return "Endereço de cobrança incompleto.";
+  }
   if (!input.threedsData?.operation_session_id) return "Autenticação de segurança do cartão (3DS) não foi concluída.";
   return null;
 }
@@ -79,7 +94,7 @@ export async function payWithCard(
 
   const { data: order, error: orderError } = await service
     .from("orders")
-    .select("id, total, payment_status")
+    .select("id, order_number, total, payment_status, customer_name, customer_email")
     .eq("id", input.orderId)
     .single();
 
@@ -90,36 +105,46 @@ export async function payWithCard(
   // parcelas escolhido (tabela em src/lib/pricing.ts). Nunca confia num total
   // vindo do cliente; sempre recalcula aqui a partir do pedido.
   const cardTotal = computeCardTotalForInstallments(Number(order.total), input.installments);
+  const secretKey = process.env.PYXGATE_SECRET_KEY;
+  if (!secretKey) return { error: "Pagamento por cartão indisponível no momento. Tente pelo Pix." };
 
-  let token: string;
-  try {
-    token = await getZendryAccessToken();
-  } catch {
-    return { error: "Erro ao conectar com o gateway de pagamento. Tente novamente em instantes." };
-  }
+  const apiBase = process.env.PYXGATE_API_BASE ?? "https://pyxgate-api.onrender.com/v1";
 
   let res: Response;
   try {
-    res = await fetch(`${ZENDRY_API_BASE}/v1/card_payments`, {
+    res = await fetch(`${apiBase}/payments`, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${token}`,
+        Authorization: `Bearer ${secretKey}`,
         "Content-Type": "application/json",
+        "Idempotency-Key": `${input.orderId}-card`,
       },
       body: JSON.stringify({
-        card_payment: {
-          external_id: input.orderId,
-          amount: Math.round(cardTotal * 100),
-          currency: "BRL",
-          payment_type: "CREDIT",
-          card_number: digitsOnly(input.cardNumber),
-          card_expiration_date: input.cardExpirationDate,
-          card_security_code: input.cardSecurityCode,
-          card_holder_name: input.cardHolderName.trim(),
-          card_holder_document: digitsOnly(input.cardHolderDocument),
-          installments: input.installments,
-          threeds_data: input.threedsData,
+        amount: centsFromReais(cardTotal),
+        payment_method: "card",
+        customer: {
+          name: order.customer_name,
+          email: order.customer_email,
+          document: digitsOnly(input.cardHolderDocument),
         },
+        metadata: { order_id: input.orderId, order_number: order.order_number },
+        billing_address: {
+          zip_code: digitsOnly(input.billingAddress.zipCode),
+          street: input.billingAddress.street.trim(),
+          number: input.billingAddress.number.trim(),
+          complement: input.billingAddress.complement.trim(),
+          neighborhood: input.billingAddress.neighborhood.trim(),
+          city: input.billingAddress.city.trim(),
+          state: input.billingAddress.state.trim(),
+        },
+        card: {
+          number: digitsOnly(input.cardNumber),
+          holder_name: input.cardHolderName.trim(),
+          expiration_date: input.cardExpirationDate,
+          security_code: input.cardSecurityCode,
+          installments: input.installments,
+        },
+        threeds_data: input.threedsData,
       }),
     });
   } catch {
@@ -130,29 +155,22 @@ export async function payWithCard(
   if (!res.ok) {
     let message = "Pagamento recusado pela operadora do cartão.";
     try {
-      const body = (await res.json()) as { error?: string; message?: string };
-      message = body.error ?? body.message ?? message;
+      const body = (await res.json()) as { error?: { message?: string } };
+      message = body.error?.message ?? message;
     } catch {
       // corpo não veio como JSON — mantém a mensagem genérica
     }
     return { error: message };
   }
 
-  const { card_payment: payment } = (await res.json()) as ZendryCardPaymentResponse;
+  const payment = (await res.json()) as PyxGateCardPaymentResponse;
 
   await service
     .from("payments")
-    .update({ method: "card", external_id: payment.muid })
+    .update({ method: "card", external_id: payment.id })
     .eq("order_id", input.orderId);
 
-  if (payment.status === "waiting_3ds_authentication") {
-    return {
-      error:
-        "Esse cartão exige uma etapa extra de segurança que ainda não oferecemos. Tente outro cartão ou pague com Pix.",
-    };
-  }
-
-  if (payment.status !== "accepted") {
+  if (payment.status !== "paid") {
     return { error: "Pagamento recusado pela operadora do cartão." };
   }
 

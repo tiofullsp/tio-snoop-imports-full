@@ -425,10 +425,10 @@ export interface Customer {
 export type OrderStatus =
   | "pending_payment"
   | "payment_confirmed"
-  | "awaiting_validation"
-  | "awaiting_separation"
-  | "shipped"
-  | "delivered"
+  | "shipping_link_pending"
+  | "shipping_paid"
+  | "label_issued"
+  | "completed"
   | "cancelled";
 
 export type PaymentStatus = "pending" | "confirmed" | "failed" | "refunded";
@@ -470,6 +470,7 @@ export interface Order {
   customer_name: string;
   customer_phone: string;
   customer_email: string;
+  customer_cpf?: string;
 
   status: OrderStatus;
   payment_status: PaymentStatus;
@@ -496,6 +497,15 @@ export interface Order {
   tracking_code?: string;
   tracking_url?: string;
   total: number;
+
+  // Frete (Shopee)
+  payment_confirmed_at?: string;
+  shipping_payment_link?: string;
+  shipping_customer_name?: string;
+  shipping_order_id?: string;
+  shipping_label_url?: string;
+  shipping_label_storage_path?: string;
+  label_issued_at?: string;
 
   // Itens
   items?: OrderItem[];
@@ -713,11 +723,11 @@ export interface AdminProfile {
 
 export const ORDER_STATUS_LABELS: Record<OrderStatus, string> = {
   pending_payment: "Aguardando pagamento",
-  payment_confirmed: "Pago",
-  awaiting_validation: "Aguardando validação",
-  awaiting_separation: "Separando pedido",
-  shipped: "Saiu para entrega",
-  delivered: "Entregue",
+  payment_confirmed: "Pagamento Confirmado",
+  shipping_link_pending: "Link de pagamento do Envio",
+  shipping_paid: "Envio pago",
+  label_issued: "Etiqueta emitida",
+  completed: "Pedido Finalizado",
   cancelled: "Cancelado",
 };
 
@@ -727,10 +737,10 @@ export const ORDER_STATUS_COLORS: Record<
 > = {
   pending_payment: "warning",
   payment_confirmed: "success",
-  awaiting_validation: "info",
-  awaiting_separation: "info",
-  shipped: "info",
-  delivered: "success",
+  shipping_link_pending: "info",
+  shipping_paid: "success",
+  label_issued: "info",
+  completed: "success",
   cancelled: "danger",
 };
 

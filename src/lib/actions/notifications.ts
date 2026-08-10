@@ -16,7 +16,7 @@ export interface AdminNotification {
   date: string; // só pra ordenar — não exibido
 }
 
-const PENDING_ORDER_STATUSES = ["pending_payment", "awaiting_validation"] as const;
+const PENDING_ORDER_STATUSES = ["pending_payment", "shipping_paid"] as const;
 const COUPON_EXPIRING_WINDOW_DAYS = 7;
 const MAX_PER_TYPE = 8;
 const MAX_TOTAL = 20;
@@ -31,7 +31,7 @@ const INCLUDE_TEST_NOTIFICATIONS = true;
 function buildTestNotifications(): AdminNotification[] {
   const now = new Date().toISOString();
   return [
-    { id: "test-order-1", type: "order", severity: "danger", title: "Pedido #1042", subtitle: "Aguardando validação · Maria Silva", href: routes.admin.pedidos, date: now },
+    { id: "test-order-1", type: "order", severity: "danger", title: "Pedido #1042", subtitle: "Aguardando etiqueta de envio · Maria Silva", href: routes.admin.pedidos, date: now },
     { id: "test-order-2", type: "order", severity: "warning", title: "Pedido #1041", subtitle: "Pagamento pendente · João Pereira", href: routes.admin.pedidos, date: now },
     { id: "test-coupon-1", type: "coupon", severity: "warning", title: "Cupom BLACKFRIDAY10", subtitle: "Expira em até 7 dias", href: routes.admin.cupons, date: now },
   ];
@@ -62,11 +62,11 @@ export async function getAdminNotifications(): Promise<AdminNotification[] | { e
     notifications.push({
       id: `order-${o.id}`,
       type: "order",
-      severity: o.status === "awaiting_validation" ? "danger" : "warning",
+      severity: o.status === "shipping_paid" ? "danger" : "warning",
       title: `Pedido #${o.order_number}`,
       subtitle:
-        o.status === "awaiting_validation"
-          ? `Aguardando validação · ${o.customer_name}`
+        o.status === "shipping_paid"
+          ? `Aguardando etiqueta de envio · ${o.customer_name}`
           : `Pagamento pendente · ${o.customer_name}`,
       href: routes.admin.pedido(o.id),
       date: o.created_at,

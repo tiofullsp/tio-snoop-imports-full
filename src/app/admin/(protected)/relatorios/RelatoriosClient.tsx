@@ -69,7 +69,7 @@ export function RelatoriosClient({
                     <tr key={d.date} className="border-b border-dark-border last:border-0">
                       <td className="py-2.5 text-dark-text">{formatDate(d.date)}</td>
                       <td className="py-2.5 text-right text-muted">{d.orders}</td>
-                      <td className="py-2.5 text-right font-bold text-accent">{formatCurrency(d.revenue)}</td>
+                      <td className="py-2.5 text-right font-bold text-dark-text">{formatCurrency(d.revenue)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -99,7 +99,7 @@ export function RelatoriosClient({
                       <div className="text-xs text-muted">{p.category_name}</div>
                     </td>
                     <td className="px-4 py-3 text-right text-sm text-dark-text">{p.quantity_sold}</td>
-                    <td className="px-4 py-3 text-right font-bold text-accent">{formatCurrency(p.revenue)}</td>
+                    <td className="px-4 py-3 text-right font-bold text-dark-text">{formatCurrency(p.revenue)}</td>
                     <td className="px-4 py-3 text-right text-sm text-muted hidden md:table-cell">{formatCurrency(p.average_ticket)}</td>
                   </tr>
                 ))}
@@ -143,7 +143,7 @@ export function RelatoriosClient({
                       </div>
                     </td>
                     <td className="px-4 py-3 text-right text-sm text-dark-text">{c.total_orders}</td>
-                    <td className="px-4 py-3 text-right font-bold text-accent">{formatCurrency(c.total_spent)}</td>
+                    <td className="px-4 py-3 text-right font-bold text-dark-text">{formatCurrency(c.total_spent)}</td>
                     <td className="px-4 py-3 text-right text-sm text-muted hidden sm:table-cell">{formatCurrency(c.average_ticket)}</td>
                   </tr>
                 ))}
@@ -169,7 +169,7 @@ export function RelatoriosClient({
               <tbody>
                 {couponReport.map((c) => (
                   <tr key={c.coupon_id} className="border-b border-dark-border last:border-0 hover:bg-dark-hover">
-                    <td className="px-4 py-3 font-mono font-bold text-accent">{c.code}</td>
+                    <td className="px-4 py-3 font-mono font-bold text-dark-text">{c.code}</td>
                     <td className="px-4 py-3 text-xs text-muted">{COUPON_TYPE_LABELS[c.type]}</td>
                     <td className="px-4 py-3 text-right text-sm text-dark-text">{c.uses_count}</td>
                     <td className="px-4 py-3 text-right font-bold text-danger">{formatCurrency(c.total_discounted)}</td>
@@ -197,7 +197,7 @@ export function RelatoriosClient({
                     <tr key={o.id} className="border-b border-dark-border last:border-0">
                       <td className="px-4 py-3 font-mono text-xs text-dark-text">{o.order_number}</td>
                       <td className="px-4 py-3 text-sm text-muted">{o.customer_name}</td>
-                      <td className="px-4 py-3 text-right font-bold text-accent">{formatCurrency(o.total)}</td>
+                      <td className="px-4 py-3 text-right font-bold text-dark-text">{formatCurrency(o.total)}</td>
                     </tr>
                   ))}
                   {operationalReport.paid_orders.length === 0 && (

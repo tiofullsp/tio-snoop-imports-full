@@ -7,9 +7,10 @@ import { formatDateTime } from "@/lib/formatters";
 const STATUS_ORDER: OrderStatus[] = [
   "pending_payment",
   "payment_confirmed",
-  "awaiting_separation",
-  "shipped",
-  "delivered",
+  "shipping_link_pending",
+  "shipping_paid",
+  "label_issued",
+  "completed",
 ];
 
 interface OrderStatusTimelineProps {
@@ -40,13 +41,27 @@ export const OrderStatusTimeline = ({
   }
 
   const currentIndex = STATUS_ORDER.indexOf(currentStatus);
+  // "pending_payment" é o único status que representa uma espera de verdade
+  // (nada foi concluído ainda); todo o resto já é um evento concluído — então
+  // o "último passo concluído" é o próprio currentIndex, exceto nesse caso.
+  const lastCompletedIndex = currentStatus === "pending_payment" ? currentIndex - 1 : currentIndex;
 
   return (
     <div className="space-y-0">
       {STATUS_ORDER.map((status, i) => {
-        const isCompleted = i < currentIndex;
-        const isCurrent = i === currentIndex;
+        // Cada label da timeline (exceto "Aguardando pagamento") descreve um
+        // evento que já aconteceu ("Envio pago", "Etiqueta emitida"...), não
+        // algo em progresso — então o passo atual conta como concluído
+        // também. Só "pending_payment" é uma espera de verdade (ninguém
+        // "concluiu" aguardar), por isso é o único que mostra o spinner.
+        const isWaiting = status === "pending_payment" && i === currentIndex;
+        const isCompleted = i < currentIndex || (i === currentIndex && !isWaiting);
+        const isCurrent = isWaiting;
         const historyEntry = history.find((h) => h.new_status === status);
+        // A linha que sai do último passo concluído rumo ao próximo (ainda
+        // não feito) ganha uma animação de "fluxo" — dá a sensação de
+        // progresso em andamento, não só uma barra estática.
+        const isLeadingEdge = i === lastCompletedIndex;
 
         return (
           <div key={status} className="flex gap-3">
@@ -73,11 +88,13 @@ export const OrderStatusTimeline = ({
               {i < STATUS_ORDER.length - 1 && (
                 <div
                   className={[
-                    "w-0.5 flex-1 my-1",
+                    "w-0.5 flex-1 my-1 relative overflow-hidden",
                     isCompleted ? "bg-success/30" : "bg-dark-border",
                   ].join(" ")}
                   style={{ minHeight: "20px" }}
-                />
+                >
+                  {isLeadingEdge && <div className="absolute inset-0 animate-flow-down" />}
+                </div>
               )}
             </div>
 

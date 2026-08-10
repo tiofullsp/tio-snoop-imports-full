@@ -30,12 +30,12 @@ export const PublicFooter = ({ categories, whatsappNumber }: Props) => (
         <div className="col-span-1 md:col-span-2">
           <Link href={routes.home} className="inline-block mb-5">
             <Image
-              src="/logo-tio-snoop.png"
+              src="/logo-nova.png"
               alt="Tio Snoop Imports Full"
-              width={860}
-              height={418}
+              width={1536}
+              height={1024}
               unoptimized
-              className="h-10 w-auto object-contain opacity-90 hover:opacity-100 transition-opacity"
+              className="h-14 w-auto object-contain opacity-90 hover:opacity-100 transition-opacity"
             />
           </Link>
           <p className="text-sm text-muted leading-relaxed max-w-xs mb-6">

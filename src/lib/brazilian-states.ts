@@ -1,0 +1,66 @@
+// Lista de estados brasileiros por nome completo (não a sigla) — usada no
+// seletor de Estado do checkout, a pedido explícito: o cliente escolhe
+// "São Paulo", não "SP".
+export const BRAZILIAN_STATES = [
+  "Acre",
+  "Alagoas",
+  "Amapá",
+  "Amazonas",
+  "Bahia",
+  "Ceará",
+  "Distrito Federal",
+  "Espírito Santo",
+  "Goiás",
+  "Maranhão",
+  "Mato Grosso",
+  "Mato Grosso do Sul",
+  "Minas Gerais",
+  "Pará",
+  "Paraíba",
+  "Paraná",
+  "Pernambuco",
+  "Piauí",
+  "Rio de Janeiro",
+  "Rio Grande do Norte",
+  "Rio Grande do Sul",
+  "Rondônia",
+  "Roraima",
+  "Santa Catarina",
+  "São Paulo",
+  "Sergipe",
+  "Tocantins",
+] as const;
+
+// ViaCEP devolve a UF em sigla ("SP") — usado só pra converter pro nome
+// completo quando auto-preenchemos o endereço de cobrança do cartão a partir
+// do CEP (ver PagamentoClient.tsx), mantendo a mesma convenção de nome
+// completo do resto do site.
+export const UF_TO_STATE_NAME: Record<string, string> = {
+  AC: "Acre",
+  AL: "Alagoas",
+  AP: "Amapá",
+  AM: "Amazonas",
+  BA: "Bahia",
+  CE: "Ceará",
+  DF: "Distrito Federal",
+  ES: "Espírito Santo",
+  GO: "Goiás",
+  MA: "Maranhão",
+  MT: "Mato Grosso",
+  MS: "Mato Grosso do Sul",
+  MG: "Minas Gerais",
+  PA: "Pará",
+  PB: "Paraíba",
+  PR: "Paraná",
+  PE: "Pernambuco",
+  PI: "Piauí",
+  RJ: "Rio de Janeiro",
+  RN: "Rio Grande do Norte",
+  RS: "Rio Grande do Sul",
+  RO: "Rondônia",
+  RR: "Roraima",
+  SC: "Santa Catarina",
+  SP: "São Paulo",
+  SE: "Sergipe",
+  TO: "Tocantins",
+};

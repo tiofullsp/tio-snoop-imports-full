@@ -74,7 +74,7 @@ export const AdminSidebar = () => {
       {/* Brand */}
       <div className="flex items-center justify-between px-4 h-16 border-b border-dark-border flex-shrink-0">
         {!collapsed && (
-          <span className="font-bold text-sm text-gradient-gold truncate">Premium Admin</span>
+          <span className="font-bold text-sm text-dark-text truncate">Premium Admin</span>
         )}
         <button
           onClick={() => setCollapsed(!collapsed)}
@@ -109,7 +109,7 @@ export const AdminSidebar = () => {
                       className={[
                         "flex items-center gap-3 px-2 py-2 rounded-lg text-sm font-medium transition-all duration-150",
                         active
-                          ? "bg-accent/10 text-accent"
+                          ? "bg-accent/10 text-dark-text"
                           : "text-muted hover:text-dark-text hover:bg-dark-hover",
                         collapsed ? "justify-center" : "",
                       ].join(" ")}

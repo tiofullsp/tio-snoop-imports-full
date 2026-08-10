@@ -190,8 +190,8 @@ export function NotificationBell() {
                         <Icon size={14} />
                       </div>
                       <div className="min-w-0">
-                        <p className="text-sm font-medium text-dark-text truncate">{n.title}</p>
-                        <p className="text-xs text-muted truncate">{n.subtitle}</p>
+                        <p className="text-sm font-medium text-dark-text break-words">{n.title}</p>
+                        <p className="text-xs text-muted break-words">{n.subtitle}</p>
                       </div>
                     </Link>
                   </div>

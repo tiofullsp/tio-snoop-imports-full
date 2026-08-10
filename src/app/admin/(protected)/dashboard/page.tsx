@@ -130,7 +130,7 @@ export default async function DashboardPage() {
         <div className="bg-dark-surface rounded-2xl border border-dark-border p-5">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-sm font-bold text-dark-text">Pedidos recentes</h2>
-            <Link href={routes.admin.pedidos} className="text-xs text-accent hover:underline flex items-center gap-1">
+            <Link href={routes.admin.pedidos} className="text-xs text-dark-text hover:underline flex items-center gap-1">
               Ver todos <ArrowRight size={12} />
             </Link>
           </div>
@@ -148,7 +148,7 @@ export default async function DashboardPage() {
                       label={ORDER_STATUS_LABELS[order.status]}
                       size="sm"
                     />
-                    <span className="text-sm font-bold text-accent">{formatCurrency(order.total)}</span>
+                    <span className="text-sm font-bold text-dark-text">{formatCurrency(order.total)}</span>
                   </div>
                 </div>
               </Link>
@@ -163,7 +163,7 @@ export default async function DashboardPage() {
         <div className="bg-dark-surface rounded-2xl border border-dark-border p-5">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-sm font-bold text-dark-text">Mais vendidos</h2>
-            <Link href={routes.admin.relatorios} className="text-xs text-accent hover:underline flex items-center gap-1">
+            <Link href={routes.admin.relatorios} className="text-xs text-dark-text hover:underline flex items-center gap-1">
               Ver relatório <ArrowRight size={12} />
             </Link>
           </div>
@@ -175,7 +175,7 @@ export default async function DashboardPage() {
                   <div className="text-sm font-medium text-dark-text truncate">{p.product_name}</div>
                   <div className="text-xs text-muted">{p.quantity_sold} vendidos</div>
                 </div>
-                <span className="text-sm font-bold text-accent flex-shrink-0">{formatCurrency(p.revenue)}</span>
+                <span className="text-sm font-bold text-dark-text flex-shrink-0">{formatCurrency(p.revenue)}</span>
               </div>
             ))}
           </div>
@@ -187,7 +187,7 @@ export default async function DashboardPage() {
       <div className="bg-dark-surface rounded-2xl border border-dark-border p-5">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-sm font-bold text-dark-text">Melhores clientes</h2>
-          <Link href={routes.admin.clientes} className="text-xs text-accent hover:underline flex items-center gap-1">
+          <Link href={routes.admin.clientes} className="text-xs text-dark-text hover:underline flex items-center gap-1">
             Ver todos <ArrowRight size={12} />
           </Link>
         </div>
@@ -204,7 +204,7 @@ export default async function DashboardPage() {
                   </div>
                   <div className="text-sm font-semibold text-dark-text truncate">{c.name}</div>
                   <div className="text-xs text-muted">{c.total_orders} pedido{c.total_orders !== 1 ? "s" : ""}</div>
-                  <div className="text-sm font-bold text-accent mt-1">{formatCurrency(c.total_spent)}</div>
+                  <div className="text-sm font-bold text-dark-text mt-1">{formatCurrency(c.total_spent)}</div>
                 </div>
               </Link>
             ))}

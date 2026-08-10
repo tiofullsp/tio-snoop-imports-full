@@ -52,7 +52,7 @@ export const CategoryCircle = ({ category }: CategoryCircleProps) => {
           />
         ) : (
           <div className="absolute inset-0 bg-dark-alt flex items-center justify-center">
-            <span className="text-3xl font-black text-accent select-none">
+            <span className="text-3xl font-black text-dark-text select-none">
               {category.name[0]}
             </span>
           </div>
@@ -61,7 +61,7 @@ export const CategoryCircle = ({ category }: CategoryCircleProps) => {
 
       {/* Nome e CTA */}
       <div className="text-center space-y-1 px-1">
-        <h3 className="font-bold text-accent text-sm md:text-base tracking-wide leading-tight">
+        <h3 className="font-bold text-dark-text text-sm md:text-base tracking-wide leading-tight">
           {category.name}
         </h3>
         <p className="text-xs text-muted flex items-center justify-center gap-1 group-hover:text-dark-text transition-colors duration-200">

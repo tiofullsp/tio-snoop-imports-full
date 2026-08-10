@@ -41,13 +41,24 @@ export async function processPaymentResult({
 
     // Dispara trg_update_customer_metrics e trg_inventory_on_order (baixa de
     // estoque atômica, já trata variantes) — ambos triggers existentes.
+    // payment_confirmed_at é a base do atraso (Pix/Cartão) do link de frete,
+    // ver src/lib/orders/shipping-link.ts.
+    const confirmedAt = new Date().toISOString();
     const { error: confirmError } = await service
       .from("orders")
-      .update({ payment_status: "confirmed", updated_at: new Date().toISOString() })
+      .update({ payment_status: "confirmed", payment_confirmed_at: confirmedAt, updated_at: confirmedAt })
       .eq("id", orderId);
     if (confirmError) return { error: confirmError.message };
 
-    return transitionOrderStatus(service, orderId, "payment_confirmed", "webhook", "Pagamento aprovado pelo gateway");
+    // Pedido já tinha sido cancelado (ex: gateway avisou "expirado" antes de
+    // confirmar o pagamento de verdade) — reativa em vez de deixar o dinheiro
+    // do cliente "perdido" num pedido cancelado. Nota diferente pra chamar
+    // atenção do admin (a notificação de mudança de status já avisa sozinha).
+    const notes = order.status === "cancelled"
+      ? "Pagamento aprovado pelo gateway APÓS cancelamento — pedido reativado automaticamente"
+      : "Pagamento aprovado pelo gateway";
+
+    return transitionOrderStatus(service, orderId, "payment_confirmed", "webhook", notes);
   }
 
   if (status === "rejected" || status === "cancelled") {

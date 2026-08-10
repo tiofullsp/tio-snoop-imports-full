@@ -36,6 +36,7 @@ export default async function PagamentoPage({
       orderId={orderId}
       orderNumber={order.order_number}
       total={order.total}
+      initialPaymentMethod={order.payment_method}
       pixCode={payment?.pix_code ?? null}
       pixQrUrl={payment?.pix_qr_url ?? null}
       checkoutUrl={payment?.checkout_url ?? null}

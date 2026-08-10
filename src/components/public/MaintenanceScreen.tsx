@@ -9,13 +9,13 @@ interface Props {
 export const MaintenanceScreen = ({ whatsappLink }: Props) => (
   <div className="min-h-screen flex flex-col items-center justify-center px-4 text-center bg-dark-bg">
     <Image
-      src="/logo-tio-snoop.png"
+      src="/logo-nova.png"
       alt="Tio Snoop Imports Full"
-      width={860}
-      height={418}
+      width={1536}
+      height={1024}
       unoptimized
       priority
-      className="h-14 w-auto object-contain mb-8"
+      className="h-16 w-auto object-contain mb-8"
     />
     <div className="w-16 h-16 bg-accent/10 rounded-full flex items-center justify-center mb-6">
       <Wrench size={28} className="text-accent" />

@@ -9,8 +9,8 @@ export const ShippingNotice = () => (
     </div>
     <p className="text-sm text-muted leading-relaxed">
       Enviamos pela <span className="text-dark-text font-medium">Shopee</span> para todo o Brasil.
-      O frete fica entre <span className="text-accent font-semibold">R$ 40,00</span> e{" "}
-      <span className="text-accent font-semibold">R$ 80,00</span>, combinado após o pedido.
+      O frete fica entre <span className="text-dark-text font-semibold">R$ 40,00</span> e{" "}
+      <span className="text-dark-text font-semibold">R$ 80,00</span>, combinado após o pedido.
     </p>
   </div>
 );

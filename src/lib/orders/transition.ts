@@ -17,7 +17,8 @@ export async function transitionOrderStatus(
   orderId: string,
   newStatus: OrderStatus,
   changedBy: string,
-  notes?: string
+  notes?: string,
+  extraFields?: Record<string, unknown>
 ): Promise<{ error?: string }> {
   const { data: order, error: fetchError } = await service
     .from("orders")
@@ -37,9 +38,14 @@ export async function transitionOrderStatus(
     return { error: `Transição inválida: ${ORDER_STATUS_LABELS[currentStatus]} → ${ORDER_STATUS_LABELS[newStatus]}` };
   }
 
+  // extraFields entra no MESMO update do status — ex: a etiqueta (URL +
+  // label_issued_at) junto com a virada pra "label_issued". Um único UPDATE
+  // é atômico por linha: quem ler o pedido nunca pega um instante em que só
+  // um dos dois já mudou (etiqueta visível com status ainda no passo
+  // anterior, timeline incompleta, etc).
   const { error: updateError } = await service
     .from("orders")
-    .update({ status: newStatus, updated_at: new Date().toISOString() })
+    .update({ status: newStatus, updated_at: new Date().toISOString(), ...extraFields })
     .eq("id", orderId);
 
   if (updateError) return { error: updateError.message };

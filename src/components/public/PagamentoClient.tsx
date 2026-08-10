@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Script from "next/script";
 import { QRCodeSVG } from "qrcode.react";
@@ -14,7 +14,9 @@ import { routes } from "@/lib/routes";
 import { formatCurrency } from "@/lib/formatters";
 import { generateStoreWhatsAppLink } from "@/lib/whatsapp";
 import { maskCpf, maskCep } from "@/lib/utils";
+import { UF_TO_STATE_NAME } from "@/lib/brazilian-states";
 import { payWithCard } from "@/lib/actions/card-payment";
+import { checkPixPaymentStatus } from "@/lib/actions/pix-status";
 import { PAYMENT_MODE } from "@/lib/payments/mode";
 import { computeCardTotalForInstallments, MAX_CARD_INSTALLMENTS } from "@/lib/pricing";
 
@@ -29,6 +31,10 @@ interface PagamentoClientProps {
   isStub: boolean;
   whatsappNumber?: string;
   clientIp?: string;
+  // Escolhido pelo cliente já no checkout — define a aba inicial e, mais
+  // importante, evita gerar uma cobrança Pix à toa na PyxGate quando o
+  // cliente já veio com intenção de pagar no cartão.
+  initialPaymentMethod: "pix" | "card";
 }
 
 declare global {
@@ -79,12 +85,10 @@ const CARD_BRAND_OPTIONS = [
   { value: "AMEX", label: "American Express" },
 ];
 
-// 3DS é obrigatório na Zendry (confirmado testando de verdade) — o desafio
-// roda no navegador via ZendrySDKThreeds.init_threeds() antes de submeter o
-// pagamento. O token usado nesse SDK é o mesmo Bearer secreto do backend
-// (confirmado com o suporte da Zendry) e não pode ser restringido por
-// whitelist de IP nesse fluxo específico — exposição de risco aceita
-// conscientemente pelo dono da loja. Ver src/lib/payments/mode.ts.
+// 3DS é obrigatório — o desafio roda no navegador via
+// ZendrySDKThreeds.init_threeds() antes de submeter o pagamento (a PYX Gate
+// roteia o desafio de cartão pela Zendry por trás, ver
+// src/app/api/payments/pyxgate-3ds-token). Ver src/lib/payments/mode.ts.
 const CARD_PAYMENT_ENABLED = true;
 
 export function PagamentoClient({
@@ -98,14 +102,57 @@ export function PagamentoClient({
   isStub,
   whatsappNumber,
   clientIp,
+  initialPaymentMethod,
 }: PagamentoClientProps) {
   const router = useRouter();
   const [copied, setCopied] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const [confirmError, setConfirmError] = useState("");
+  const [pixFailed, setPixFailed] = useState(false);
 
   const hasPix = !!(pixQrUrl || pixCode);
-  const [activeTab, setActiveTab] = useState<"pix" | "card">("pix");
+  const [activeTab, setActiveTab] = useState<"pix" | "card">(initialPaymentMethod);
+
+  // A cobrança na PyxGate não é mais criada no checkout (levava 10s+ com o
+  // botão travado, sem feedback nenhum) — essa página que dispara a criação
+  // assim que carrega, mostrando "Gerando seu Pix..." nesse meio tempo.
+  // Só gera se a aba ativa for Pix — se o cliente escolheu cartão no
+  // checkout, não faz sentido nenhum criar uma cobrança Pix que ele nunca
+  // vai pagar (isso já causou pedido aparecendo como "Pix" na PyxGate mesmo
+  // quando o cliente pagou de verdade no cartão).
+  const needsGeneration = activeTab === "pix" && !hasPix && !checkoutUrl && !isStub;
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [generateError, setGenerateError] = useState("");
+  const autoGenerateAttemptedRef = useRef(false);
+
+  const generatePreference = async () => {
+    setIsGenerating(true);
+    setGenerateError("");
+    try {
+      const res = await fetch("/api/payments/create-preference", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orderId }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setGenerateError(json.error ?? "Não foi possível gerar o pagamento. Tente novamente.");
+        setIsGenerating(false);
+        return;
+      }
+      router.refresh();
+    } catch {
+      setGenerateError("Não foi possível gerar o pagamento. Tente novamente.");
+      setIsGenerating(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!needsGeneration || autoGenerateAttemptedRef.current) return;
+    autoGenerateAttemptedRef.current = true;
+    generatePreference();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [needsGeneration]);
 
   const initialSeconds = expiresAt
     ? Math.max(0, Math.floor((new Date(expiresAt).getTime() - Date.now()) / 1000))
@@ -117,8 +164,41 @@ export function PagamentoClient({
     return () => clearInterval(timer);
   }, []);
 
+  // Verifica automaticamente se o pagamento já foi confirmado — sem isso, o
+  // cliente ficaria preso na tela do QR Code até dar refresh manual. A cada
+  // ciclo consulta a PYX Gate DIRETO (checkPixPaymentStatus, no servidor —
+  // GET /v1/payments/{id} com a secret key) em vez de confiar só no webhook
+  // deles, que já demorou horas em casos reais. Confirmado ou falhado, para
+  // de consultar (limpo no cleanup também, ao desmontar). Erro de rede na
+  // consulta não quebra o ciclo, só tenta de novo na próxima.
+  useEffect(() => {
+    if (!hasPix || pixFailed) return;
+    let cancelled = false;
+    const poll = setInterval(async () => {
+      try {
+        const result = await checkPixPaymentStatus(orderId);
+        if (cancelled) return;
+        if (result.status === "failed") {
+          setPixFailed(true);
+          return;
+        }
+        // "confirmed" ou "pending": router.refresh() reexecuta o Server
+        // Component (pagamento/[orderId]/page.tsx), que redireciona pra
+        // pedido-confirmado assim que payment_status vira "confirmed".
+        router.refresh();
+      } catch (err) {
+        console.error("Erro ao verificar status do Pix:", err);
+      }
+    }, 3000);
+    return () => {
+      cancelled = true;
+      clearInterval(poll);
+    };
+  }, [hasPix, pixFailed, orderId, router]);
+
   const mins = Math.floor(seconds / 60).toString().padStart(2, "0");
   const secs = (seconds % 60).toString().padStart(2, "0");
+  const isPixExpired = (!!expiresAt && seconds <= 0) || pixFailed;
 
   const handleCopy = () => {
     if (!pixCode) return;
@@ -156,11 +236,56 @@ export function PagamentoClient({
   const [cardHolderName, setCardHolderName] = useState("");
   const [cardHolderDocument, setCardHolderDocument] = useState("");
   const [cardBrand, setCardBrand] = useState("VISA");
-  const [cardBillingZip, setCardBillingZip] = useState("");
   const [installments, setInstallments] = useState("1");
   const [cardSubmitting, setCardSubmitting] = useState(false);
   const [cardStep, setCardStep] = useState<"idle" | "3ds" | "paying">("idle");
   const [cardError, setCardError] = useState("");
+
+  // Endereço de cobrança do cartão — o cliente só digita o CEP; o resto vem
+  // do ViaCEP (API pública, sem autenticação, usada em praticamente todo
+  // checkout brasileiro). Número e complemento continuam manuais (o CEP não
+  // sabe disso).
+  const [cardBillingZip, setCardBillingZip] = useState("");
+  const [cardStreet, setCardStreet] = useState("");
+  const [cardAddressNumber, setCardAddressNumber] = useState("");
+  const [cardComplement, setCardComplement] = useState("");
+  const [cardNeighborhood, setCardNeighborhood] = useState("");
+  const [cardCity, setCardCity] = useState("");
+  const [cardState, setCardState] = useState("");
+  const [cepLookupLoading, setCepLookupLoading] = useState(false);
+  const [cepLookupError, setCepLookupError] = useState("");
+  const [addressFound, setAddressFound] = useState(false);
+
+  const handleCardZipChange = async (rawValue: string) => {
+    const masked = maskCep(rawValue);
+    setCardBillingZip(masked);
+    setCepLookupError("");
+    const digits = masked.replace(/\D/g, "");
+    if (digits.length !== 8) {
+      setAddressFound(false);
+      return;
+    }
+    setCepLookupLoading(true);
+    try {
+      const res = await fetch(`https://viacep.com.br/ws/${digits}/json/`);
+      const json = await res.json();
+      if (json.erro) {
+        setCepLookupError("CEP não encontrado. Confira e tente de novo.");
+        setAddressFound(false);
+        return;
+      }
+      setCardStreet(json.logradouro ?? "");
+      setCardNeighborhood(json.bairro ?? "");
+      setCardCity(json.localidade ?? "");
+      setCardState(UF_TO_STATE_NAME[json.uf] ?? json.uf ?? "");
+      setAddressFound(true);
+    } catch {
+      setCepLookupError("Não foi possível consultar o CEP agora. Preencha o endereço manualmente.");
+      setAddressFound(false);
+    } finally {
+      setCepLookupLoading(false);
+    }
+  };
 
   // Total real no cartão pra quantidade de parcelas escolhida — taxa da
   // adquirente sobe conforme parcela (ver src/lib/pricing.ts). Recalculado
@@ -188,11 +313,16 @@ export function PagamentoClient({
       setCardSubmitting(false);
       return;
     }
+    if (!cardStreet.trim() || !cardAddressNumber.trim() || !cardNeighborhood.trim() || !cardCity.trim() || !cardState.trim()) {
+      setCardError("Preencha o endereço de cobrança completo.");
+      setCardSubmitting(false);
+      return;
+    }
 
     try {
       setCardStep("3ds");
 
-      const tokenRes = await fetch("/api/payments/zendry-3ds-token");
+      const tokenRes = await fetch("/api/payments/pyxgate-3ds-token");
       const tokenJson = (await tokenRes.json()) as { token?: string };
       if (!tokenRes.ok || !tokenJson.token) {
         setCardError("Erro ao iniciar a autenticação de segurança do cartão. Tente novamente.");
@@ -241,6 +371,15 @@ export function PagamentoClient({
         cardHolderName,
         cardHolderDocument,
         installments: Number(installments),
+        billingAddress: {
+          zipCode: cardBillingZip.replace(/\D/g, ""),
+          street: cardStreet.trim(),
+          number: cardAddressNumber.trim(),
+          complement: cardComplement.trim(),
+          neighborhood: cardNeighborhood.trim(),
+          city: cardCity.trim(),
+          state: cardState.trim(),
+        },
         threedsData: {
           operation_session_id: t.operation_session_id,
           cavv: t.cavv,
@@ -289,7 +428,7 @@ export function PagamentoClient({
           <div className="text-center mb-8">
             <h1 className="text-2xl font-bold text-dark-text mb-2">Recebemos seu pedido!</h1>
             <p className="text-muted">
-              Pedido #{orderNumber} · Total: <span className="text-accent font-bold">{formatCurrency(total)}</span>
+              Pedido #{orderNumber} · Total: <span className="text-dark-text font-bold">{formatCurrency(total)}</span>
             </p>
           </div>
 
@@ -354,17 +493,24 @@ export function PagamentoClient({
         <div className="text-center mb-8">
           <h1 className="text-2xl font-bold text-dark-text mb-2">Finalize seu pagamento</h1>
           <p className="text-muted">
-            Pedido #{orderNumber} · Total: <span className="text-accent font-bold">{formatCurrency(total)}</span>
+            Pedido #{orderNumber} · Total: <span className="text-dark-text font-bold">{formatCurrency(total)}</span>
           </p>
         </div>
 
-        {/* Timer */}
-        <div className="flex items-center justify-center gap-2 mb-6 p-3 bg-warning/5 border border-warning/20 rounded-xl">
-          <Clock size={16} className="text-warning" />
-          <span className="text-sm text-warning font-medium">
-            Pague em {mins}:{secs} antes do link expirar
-          </span>
-        </div>
+        {/* Timer — só depois que o Pix (com prazo real) já existe */}
+        {!needsGeneration && (
+          <div
+            className={[
+              "flex items-center justify-center gap-2 mb-6 p-3 rounded-xl border",
+              isPixExpired ? "bg-danger/5 border-danger/20" : "bg-warning/5 border-warning/20",
+            ].join(" ")}
+          >
+            <Clock size={16} className={isPixExpired ? "text-danger" : "text-warning"} />
+            <span className={["text-sm font-medium", isPixExpired ? "text-danger" : "text-warning"].join(" ")}>
+              {isPixExpired ? "Esse código Pix expirou" : `Pague em ${mins}:${secs} antes do link expirar`}
+            </span>
+          </div>
+        )}
 
         {hasPix ? (
           <>
@@ -395,71 +541,91 @@ export function PagamentoClient({
 
             {activeTab === "pix" || !CARD_PAYMENT_ENABLED ? (
               <>
-                {/* QR Code */}
-                {(pixCode || pixQrUrl) && (
-                  <div className="relative flex flex-col items-center gap-6 p-8 bg-dark-surface rounded-3xl border border-dark-border mb-6 overflow-hidden">
-                    {/* glow decorativo */}
-                    <div className="pointer-events-none absolute -top-24 left-1/2 -translate-x-1/2 w-72 h-72 rounded-full bg-accent/20 blur-3xl" />
-
-                    <div className="relative p-5 rounded-3xl bg-gradient-to-br from-accent to-accent-light shadow-[0_8px_30px_-4px_rgba(242,183,5,0.45)]">
-                      <div className="p-4 bg-white rounded-2xl">
-                        {pixCode ? (
-                          <QRCodeSVG
-                            value={pixCode}
-                            size={280}
-                            level="H"
-                            fgColor="#0f172a"
-                            bgColor="#ffffff"
-                            imageSettings={{
-                              src: "/icon.png",
-                              height: 56,
-                              width: 56,
-                              excavate: true,
-                            }}
-                          />
-                        ) : (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img src={pixQrUrl ?? undefined} alt="QR Code Pix" className="w-[280px] h-[280px] object-contain" />
-                        )}
-                      </div>
-                    </div>
-
-                    <p className="relative text-sm text-muted text-center">Escaneie o QR Code com o app do seu banco</p>
+                {isPixExpired ? (
+                  /* Código expirado — some o QR/código pra não confundir o cliente */
+                  <div className="flex flex-col items-center gap-3 p-8 bg-dark-surface rounded-3xl border border-danger/20 mb-6 text-center">
+                    <Clock size={32} className="text-danger" />
+                    <p className="text-sm font-semibold text-dark-text">Esse código Pix não é mais válido</p>
+                    <p className="text-sm text-muted max-w-sm">
+                      Fale com a gente no WhatsApp pra gerar um novo link de pagamento pro seu pedido.
+                    </p>
+                    <a
+                      href={generateStoreWhatsAppLink(whatsappNumber, `Meu código Pix do pedido #${orderNumber} expirou, pode gerar um novo?`)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-2 mt-2 px-5 py-2.5 bg-whatsapp/10 border border-whatsapp/25 text-whatsapp rounded-xl text-sm font-semibold hover:bg-whatsapp/18 hover:border-whatsapp/40 transition-all"
+                    >
+                      <MessageCircle size={16} />
+                      Falar no WhatsApp
+                    </a>
                   </div>
-                )}
+                ) : (
+                  <>
+                    {/* QR Code */}
+                    {(pixCode || pixQrUrl) && (
+                      <div className="flex flex-col items-center gap-5 p-8 bg-dark-surface rounded-3xl border border-dark-border mb-6">
+                        <div className="p-5 bg-dark-bg rounded-2xl border border-accent/50 shadow-[0_0_35px_rgba(242,183,5,0.4)]">
+                          {pixCode ? (
+                            <QRCodeSVG
+                              value={pixCode}
+                              size={260}
+                              level="H"
+                              fgColor="#f2b705"
+                              bgColor="#0a0a0d"
+                              imageSettings={{
+                                src: "/logo-badge.png",
+                                height: 44,
+                                width: 44,
+                                excavate: true,
+                              }}
+                            />
+                          ) : (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={pixQrUrl ?? undefined} alt="QR Code Pix" className="w-[260px] h-[260px] object-contain" />
+                          )}
+                        </div>
 
-                {/* Código Pix */}
-                {pixCode && (
-                  <div className="space-y-3 mb-8">
-                    <p className="text-sm font-medium text-dark-text">Ou copie o código:</p>
-                    <div className="flex gap-2">
-                      <code className="flex-1 bg-dark-alt rounded-xl px-3 py-2.5 text-xs text-muted font-mono truncate border border-dark-border">
-                        {pixCode}
-                      </code>
-                      <Button variant="accent" size="sm" onClick={handleCopy} leftIcon={copied ? <CheckCircle2 size={14} /> : <Copy size={14} />}>
-                        {copied ? "Copiado!" : "Copiar"}
-                      </Button>
-                    </div>
-                  </div>
-                )}
-
-                {/* Instructions */}
-                <div className="bg-dark-surface rounded-2xl border border-dark-border p-5 space-y-3 mb-6">
-                  <h3 className="text-sm font-bold text-dark-text">Como pagar:</h3>
-                  {[
-                    "Abra o app do seu banco",
-                    "Escaneie o QR Code ou cole o código copiado",
-                    "Confirme o pagamento",
-                    "Aguarde a confirmação do pagamento",
-                  ].map((step, i) => (
-                    <div key={i} className="flex items-center gap-3 text-sm text-muted">
-                      <div className="w-5 h-5 bg-accent/10 text-accent rounded-full flex items-center justify-center flex-shrink-0 text-xs font-bold">
-                        {i + 1}
+                        <p className="text-sm text-muted text-center">Escaneie o QR Code com o app do seu banco</p>
+                        <p className="text-xs text-warning/80 text-center max-w-sm -mt-3">
+                          Se o app do seu banco não conseguir ler o QR Code, use a opção &quot;copiar código&quot; abaixo.
+                        </p>
                       </div>
-                      {step}
+                    )}
+
+                    {/* Código Pix */}
+                    {pixCode && (
+                      <div className="space-y-3 mb-8">
+                        <p className="text-sm font-medium text-dark-text">Ou copie o código:</p>
+                        <div className="flex gap-2">
+                          <code className="flex-1 bg-dark-alt rounded-xl px-3 py-2.5 text-xs text-muted font-mono truncate border border-dark-border">
+                            {pixCode}
+                          </code>
+                          <Button variant="accent" size="sm" onClick={handleCopy} leftIcon={copied ? <CheckCircle2 size={14} /> : <Copy size={14} />}>
+                            {copied ? "Copiado!" : "Copiar"}
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Instructions */}
+                    <div className="bg-dark-surface rounded-2xl border border-dark-border p-5 space-y-3 mb-6">
+                      <h3 className="text-sm font-bold text-dark-text">Como pagar:</h3>
+                      {[
+                        "Abra o app do seu banco",
+                        "Escaneie o QR Code ou cole o código copiado",
+                        "Confirme o pagamento",
+                        "Aguarde a confirmação do pagamento",
+                      ].map((step, i) => (
+                        <div key={i} className="flex items-center gap-3 text-sm text-muted">
+                          <div className="w-5 h-5 bg-accent/10 text-accent rounded-full flex items-center justify-center flex-shrink-0 text-xs font-bold">
+                            {i + 1}
+                          </div>
+                          {step}
+                        </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
+                  </>
+                )}
               </>
             ) : (
               <form onSubmit={handlePayWithCard} className="bg-dark-surface rounded-2xl border border-dark-border p-5 space-y-4 mb-6">
@@ -510,23 +676,72 @@ export function PagamentoClient({
                   maxLength={14}
                   required
                 />
-                <div className="grid grid-cols-2 gap-3">
-                  <Select
-                    label="Bandeira"
-                    value={cardBrand}
-                    onChange={setCardBrand}
-                    options={CARD_BRAND_OPTIONS}
-                  />
-                  <Input
-                    label="CEP de cobrança"
-                    value={cardBillingZip}
-                    onChange={(e) => setCardBillingZip(maskCep(e.target.value))}
-                    placeholder="00000-000"
-                    inputMode="numeric"
-                    maxLength={9}
-                    required
-                  />
-                </div>
+                <Select
+                  label="Bandeira"
+                  value={cardBrand}
+                  onChange={setCardBrand}
+                  options={CARD_BRAND_OPTIONS}
+                />
+
+                {/* Endereço de cobrança — só o CEP é digitado de propósito; o
+                    resto vem do ViaCEP assim que os 8 dígitos são preenchidos. */}
+                <Input
+                  label="CEP de cobrança"
+                  value={cardBillingZip}
+                  onChange={(e) => handleCardZipChange(e.target.value)}
+                  placeholder="00000-000"
+                  inputMode="numeric"
+                  maxLength={9}
+                  required
+                  helper={cepLookupLoading ? "Buscando endereço..." : undefined}
+                  error={cepLookupError || undefined}
+                />
+                {addressFound && (
+                  <>
+                    <Input
+                      label="Rua"
+                      value={cardStreet}
+                      onChange={(e) => setCardStreet(e.target.value)}
+                      required
+                    />
+                    <div className="grid grid-cols-2 gap-3">
+                      <Input
+                        label="Número"
+                        value={cardAddressNumber}
+                        onChange={(e) => setCardAddressNumber(e.target.value.replace(/\D/g, ""))}
+                        inputMode="numeric"
+                        required
+                      />
+                      <Input
+                        label="Complemento"
+                        value={cardComplement}
+                        onChange={(e) => setCardComplement(e.target.value)}
+                        placeholder="Opcional"
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <Input
+                        label="Bairro"
+                        value={cardNeighborhood}
+                        onChange={(e) => setCardNeighborhood(e.target.value)}
+                        required
+                      />
+                      <Input
+                        label="Cidade"
+                        value={cardCity}
+                        onChange={(e) => setCardCity(e.target.value)}
+                        required
+                      />
+                    </div>
+                    <Input
+                      label="Estado"
+                      value={cardState}
+                      onChange={(e) => setCardState(e.target.value)}
+                      required
+                    />
+                  </>
+                )}
+
                 <Select
                   label="Parcelas"
                   value={installments}
@@ -542,6 +757,25 @@ export function PagamentoClient({
               </form>
             )}
           </>
+        ) : needsGeneration ? (
+          <div className="flex flex-col items-center gap-4 p-8 bg-dark-surface rounded-3xl border border-dark-border mb-6 text-center">
+            {generateError ? (
+              <>
+                <Clock size={28} className="text-danger" />
+                <p className="text-sm font-semibold text-dark-text">Não conseguimos gerar seu pagamento</p>
+                <p className="text-sm text-muted max-w-sm">{generateError}</p>
+                <Button variant="accent" onClick={generatePreference} isLoading={isGenerating}>
+                  Tentar novamente
+                </Button>
+              </>
+            ) : (
+              <>
+                <Loader2 size={28} className="text-accent animate-spin" />
+                <p className="text-sm font-semibold text-dark-text">Gerando seu Pix...</p>
+                <p className="text-sm text-muted max-w-sm">Isso pode levar alguns segundos, só um instante.</p>
+              </>
+            )}
+          </div>
         ) : (
           checkoutUrl && (
             <div className="flex flex-col items-center gap-6 p-8 bg-dark-surface rounded-2xl border border-dark-border mb-6">

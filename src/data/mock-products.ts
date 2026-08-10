@@ -209,6 +209,9 @@ export const getProductsByCategoryIds = (categoryIds: string[]): Product[] =>
 export const getFeaturedProducts = (): Product[] =>
   mockProducts.filter((p) => p.is_featured && p.is_active);
 
+export const getAllActiveProducts = (): Product[] =>
+  mockProducts.filter((p) => p.is_active);
+
 export const getRelatedProducts = (
   productId: string,
   categoryId: string,

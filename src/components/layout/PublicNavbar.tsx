@@ -1,13 +1,14 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { usePathname } from "next/navigation";
-import { ShoppingCart, Menu, X, ChevronRight } from "lucide-react";
+import { usePathname, useRouter } from "next/navigation";
+import { ShoppingCart, Menu, X, ChevronRight, Search, Package } from "lucide-react";
 import { useCartStore } from "@/store/cart-store";
 import { routes } from "@/lib/routes";
-import { generateStoreWhatsAppLink } from "@/lib/whatsapp";
+import { formatCurrency } from "@/lib/formatters";
+import { searchProductsLive, type SearchSuggestion } from "@/lib/actions/search";
 import { AnnouncementBell } from "@/components/layout/AnnouncementBell";
 import type { Category, Announcement } from "@/types";
 
@@ -27,8 +28,110 @@ interface Props {
 export const PublicNavbar = ({ categories, announcements = [], whatsappNumber, whatsappMessage }: Props) => {
   const [scrolled,  setScrolled]  = useState(false);
   const [menuOpen,  setMenuOpen]  = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [suggestions, setSuggestions] = useState<SearchSuggestion[]>([]);
+  const [suggestionsLoading, setSuggestionsLoading] = useState(false);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const searchWrapRef = useRef<HTMLDivElement>(null);
   const itemCount = useCartStore((s) => s.getItemCount());
   const pathname  = usePathname();
+  const router = useRouter();
+
+  const runSearch = () => {
+    const q = searchQuery.trim();
+    if (!q) return;
+    router.push(routes.busca(q));
+    setSearchOpen(false);
+    setMenuOpen(false);
+  };
+
+  // Clicar numa sugestão leva pra lista de resultados (mesma tela de sempre,
+  // com grid/breadcrumb/contagem), não direto pra página do produto — usa o
+  // nome exato da sugestão como busca, então normalmente aparece só ele (ou
+  // ele + variações do mesmo nome) na lista.
+  const goToSuggestion = (name: string) => {
+    router.push(routes.busca(name));
+    setSearchOpen(false);
+    setMenuOpen(false);
+    setSearchQuery("");
+  };
+
+  // Sugestões ao vivo enquanto digita — sem precisar clicar em "Buscar".
+  // Debounce de 250ms pra não disparar uma busca a cada tecla.
+  useEffect(() => {
+    const q = searchQuery.trim();
+    if (!q) {
+      setSuggestions([]);
+      setSuggestionsLoading(false);
+      return;
+    }
+    setSuggestionsLoading(true);
+    const timer = setTimeout(async () => {
+      const results = await searchProductsLive(q);
+      setSuggestions(results);
+      setSuggestionsLoading(false);
+    }, 250);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  const suggestionsList = (
+    <>
+      {suggestionsLoading && (
+        <p className="text-xs text-muted text-center py-2">Buscando...</p>
+      )}
+      {!suggestionsLoading && searchQuery.trim() && suggestions.length === 0 && (
+        <p className="text-xs text-muted text-center py-2">Nenhum produto encontrado.</p>
+      )}
+      {suggestions.length > 0 && (
+        <div className="space-y-1 max-h-72 overflow-y-auto">
+          {suggestions.map((s) => (
+            <button
+              key={s.id}
+              onClick={() => goToSuggestion(s.name)}
+              className="w-full flex items-center gap-3 p-2 rounded-xl hover:bg-dark-alt transition-colors text-left"
+            >
+              <div className="w-10 h-10 rounded-lg bg-dark-alt border border-dark-border overflow-hidden flex-shrink-0 flex items-center justify-center">
+                {s.image ? (
+                  <Image src={s.image} alt="" width={40} height={40} className="object-cover w-full h-full" unoptimized />
+                ) : (
+                  <Package size={16} className="text-muted" />
+                )}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm text-dark-text truncate">{s.name}</p>
+                <p className="text-xs text-accent font-semibold">{formatCurrency(s.price_pix)}</p>
+              </div>
+            </button>
+          ))}
+        </div>
+      )}
+    </>
+  );
+
+  useEffect(() => {
+    if (searchOpen) searchInputRef.current?.focus();
+  }, [searchOpen]);
+
+  // Fecha o dropdown de busca ao clicar fora — mesmo padrão do AnnouncementBell.
+  useEffect(() => {
+    if (!searchOpen) return;
+    const handleClick = (e: MouseEvent) => {
+      if (searchWrapRef.current && !searchWrapRef.current.contains(e.target as Node)) {
+        setSearchOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [searchOpen]);
+
+  // Fecha o dropdown de busca (e o menu mobile) sempre que a rota muda — sem
+  // isso, ele ficava "grudado" aberto por cima do conteúdo ao navegar por um
+  // link do menu em vez de pela busca.
+  useEffect(() => {
+    setSearchOpen(false);
+    setMenuOpen(false);
+  }, [pathname]);
 
   const navLinks: NavLink[] = [
     { label: "Todos", href: routes.home, external: false },
@@ -38,7 +141,7 @@ export const PublicNavbar = ({ categories, announcements = [], whatsappNumber, w
       external: false,
     })),
     { label: "Acompanhar Pedido", href: routes.acompanharPedido, external: false },
-    { label: "Atendimento", href: generateStoreWhatsAppLink(whatsappNumber, whatsappMessage), external: true },
+    { label: "Preço de Atacado", href: "https://www.tiosnoopdog.com/", external: true },
   ];
 
   useEffect(() => {
@@ -69,13 +172,13 @@ export const PublicNavbar = ({ categories, announcements = [], whatsappNumber, w
             {/* ── Logo ─────────────────────────────── */}
             <Link href={routes.home} className="flex items-center flex-shrink-0">
               <Image
-                src="/logo-tio-snoop.png"
+                src="/logo-nova.png"
                 alt="Tio Snoop Imports Full"
-                width={860}
-                height={418}
+                width={1536}
+                height={1024}
                 priority
                 unoptimized
-                className="h-12 sm:h-16 w-auto object-contain transition-transform duration-300 hover:scale-105"
+                className="h-14 sm:h-20 w-auto object-contain transition-transform duration-300 hover:scale-105"
               />
             </Link>
 
@@ -87,13 +190,17 @@ export const PublicNavbar = ({ categories, announcements = [], whatsappNumber, w
                   "relative text-sm font-medium transition-colors duration-200 group pb-0.5 tracking-wide";
 
                 if (link.external) {
+                  const isWholesale = link.label === "Preço de Atacado";
                   return (
                     <a
                       key={link.label}
                       href={link.href}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className={`${baseClass} text-dark-text/80 hover:text-accent`}
+                      className={[
+                        baseClass,
+                        isWholesale ? "text-accent font-bold animate-pulse-accent" : "text-dark-text/80 hover:text-accent",
+                      ].join(" ")}
                     >
                       {link.label}
                       <span className="absolute bottom-0 left-0 h-0.5 w-0 rounded-full bg-accent transition-all duration-300 group-hover:w-full" />
@@ -121,6 +228,63 @@ export const PublicNavbar = ({ categories, announcements = [], whatsappNumber, w
 
             {/* ── Actions ──────────────────────────── */}
             <div className="flex items-center gap-3">
+
+              {/* Busca */}
+              <div ref={searchWrapRef} className="relative hidden sm:block">
+                <button
+                  onClick={() => setSearchOpen((v) => !v)}
+                  aria-label="Buscar produtos"
+                  className={[
+                    "flex items-center justify-center w-11 h-11 rounded-xl border transition-all duration-200",
+                    searchOpen
+                      ? "bg-accent/10 border-accent/50 text-accent"
+                      : "bg-dark-surface border-dark-border text-dark-text/70 hover:text-accent hover:border-accent/50 hover:shadow-[0_0_16px_rgba(242,183,5,0.25)]",
+                  ].join(" ")}
+                >
+                  <Search size={19} />
+                </button>
+
+                {searchOpen && (
+                  <div className="absolute right-0 top-full mt-3 w-80 z-50 animate-fade-in">
+                    <div className="relative rounded-2xl overflow-hidden bg-dark-surface border border-accent/25 shadow-[0_0_0_1px_rgba(242,183,5,0.1),0_24px_64px_rgba(0,0,0,0.55)]">
+                      <div className="absolute top-0 left-6 right-6 h-px bg-gradient-to-r from-transparent via-accent/60 to-transparent" />
+
+                      <div className="px-4 py-3.5 border-b border-dark-border flex items-center justify-between gap-2">
+                        <span className="flex items-center gap-2 text-sm font-bold text-dark-text">
+                          <Search size={14} className="text-accent" />
+                          Buscar produtos
+                        </span>
+                        <button
+                          onClick={() => setSearchOpen(false)}
+                          aria-label="Fechar busca"
+                          className="text-muted hover:text-dark-text transition-colors"
+                        >
+                          <X size={15} />
+                        </button>
+                      </div>
+
+                      <div className="p-4 space-y-3">
+                        <input
+                          ref={searchInputRef}
+                          type="text"
+                          value={searchQuery}
+                          onChange={(e) => setSearchQuery(e.target.value)}
+                          onKeyDown={(e) => e.key === "Enter" && runSearch()}
+                          placeholder="Ex: Tirzepatida, GHK-CU..."
+                          className="w-full bg-dark-alt border border-dark-border-light rounded-xl px-3.5 py-2.5 text-sm text-dark-text placeholder-muted outline-none focus:border-accent focus:ring-2 focus:ring-accent/20 transition-all"
+                        />
+                        {suggestionsList}
+                        <button
+                          onClick={runSearch}
+                          className="w-full px-4 py-2.5 rounded-xl bg-accent text-dark-bg text-sm font-semibold hover:bg-accent/90 transition-colors"
+                        >
+                          Ver todos os resultados
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
 
               {/* Avisos e promoções */}
               <AnnouncementBell announcements={announcements} />
@@ -164,10 +328,33 @@ export const PublicNavbar = ({ categories, announcements = [], whatsappNumber, w
           {/* Drawer */}
           <div className="relative bg-dark-bg border-b border-accent/10 shadow-2xl">
             <div className="max-w-7xl mx-auto px-4 py-3 space-y-1">
+              {/* Busca (mobile) */}
+              <div className="flex items-center gap-2 pb-2">
+                <div className="relative flex-1">
+                  <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted pointer-events-none" />
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && runSearch()}
+                    placeholder="Buscar produto..."
+                    className="w-full bg-dark-surface border border-dark-border-light rounded-xl pl-10 pr-4 py-2.5 text-sm text-dark-text placeholder-muted outline-none focus:border-accent focus:ring-2 focus:ring-accent/20 transition-all"
+                  />
+                </div>
+                <button
+                  onClick={runSearch}
+                  className="px-4 py-2.5 rounded-xl bg-accent text-dark-bg text-sm font-semibold hover:bg-accent/90 transition-colors flex-shrink-0"
+                >
+                  Buscar
+                </button>
+              </div>
+              {searchQuery.trim() && <div className="pb-2">{suggestionsList}</div>}
+
               {navLinks.map((link) => {
                 const active = isActive(link.href, link.external);
 
                 if (link.external) {
+                  const isWholesale = link.label === "Preço de Atacado";
                   return (
                     <a
                       key={link.label}
@@ -175,10 +362,15 @@ export const PublicNavbar = ({ categories, announcements = [], whatsappNumber, w
                       target="_blank"
                       rel="noopener noreferrer"
                       onClick={() => setMenuOpen(false)}
-                      className="flex items-center justify-between px-4 py-3.5 rounded-xl font-semibold text-dark-text/80 hover:bg-dark-alt hover:text-accent transition-colors"
+                      className={[
+                        "flex items-center justify-between px-4 py-3.5 rounded-xl font-semibold transition-colors",
+                        isWholesale
+                          ? "text-accent animate-pulse-accent bg-accent/10 border border-accent/20"
+                          : "text-dark-text/80 hover:bg-dark-alt hover:text-accent",
+                      ].join(" ")}
                     >
                       {link.label}
-                      <ChevronRight size={16} className="text-muted" />
+                      <ChevronRight size={16} className={isWholesale ? "text-accent" : "text-muted"} />
                     </a>
                   );
                 }

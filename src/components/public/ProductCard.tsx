@@ -156,7 +156,7 @@ export const ProductCard = ({ product, showCategory = false }: ProductCardProps)
           {product.name}
         </h3>
 
-        <p className="text-[11px] text-accent-light/80 leading-relaxed min-h-[2.25rem]">
+        <p className="text-[11px] text-muted leading-relaxed min-h-[2.25rem]">
           {product.short_description}
         </p>
 

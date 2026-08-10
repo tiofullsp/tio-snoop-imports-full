@@ -3,6 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { createServiceClient } from "@/lib/supabase/server";
 import { requireAdminWrite } from "@/lib/auth/admin-guard";
+import type { ShippingPaymentLinkSetting } from "@/lib/db/settings";
+import type { Json } from "@/types/database.types";
 
 function extractErrorMessage(err: unknown, fallback: string): string {
   if (err instanceof Error) return err.message;
@@ -76,6 +78,68 @@ export async function updateStoreSettings(
   }
 
   revalidatePath("/", "layout");
+  revalidatePath("/admin/configuracoes");
+  return { ok: true };
+}
+
+// ---------------------------------------------------------------------------
+// Frete — links de pagamento do envio + prazos de liberação (Pix/Cartão)
+// ---------------------------------------------------------------------------
+
+const MAX_SHIPPING_LINKS = 5;
+
+export interface ShippingSettingsFormData {
+  shipping_payment_links: ShippingPaymentLinkSetting[];
+  shipping_link_delay_pix_hours: number;
+  shipping_link_delay_card_hours: number;
+}
+
+export async function updateShippingSettings(
+  data: ShippingSettingsFormData
+): Promise<{ error: string } | { ok: true }> {
+  const guard = await requireAdminWrite();
+  if ("error" in guard) return guard;
+
+  if (data.shipping_payment_links.length > MAX_SHIPPING_LINKS) {
+    return { error: `No máximo ${MAX_SHIPPING_LINKS} links de pagamento de frete.` };
+  }
+
+  for (const link of data.shipping_payment_links) {
+    if (!link.label.trim() || !link.url.trim()) {
+      return { error: "Todo link precisa de um nome e uma URL." };
+    }
+    try {
+      new URL(link.url);
+    } catch {
+      return { error: `URL inválida: ${link.url}` };
+    }
+  }
+
+  if (
+    !Number.isFinite(data.shipping_link_delay_pix_hours) ||
+    data.shipping_link_delay_pix_hours < 0 ||
+    !Number.isFinite(data.shipping_link_delay_card_hours) ||
+    data.shipping_link_delay_card_hours < 0
+  ) {
+    return { error: "As horas de liberação precisam ser números maiores ou iguais a 0." };
+  }
+
+  const service = createServiceClient();
+
+  const { error } = await service
+    .from("store_settings_private")
+    .update({
+      shipping_payment_links: data.shipping_payment_links as unknown as Json,
+      shipping_link_delay_pix_hours: data.shipping_link_delay_pix_hours,
+      shipping_link_delay_card_hours: data.shipping_link_delay_card_hours,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("lock", true);
+
+  if (error) {
+    return { error: extractErrorMessage(error, "Erro ao salvar configurações de frete.") };
+  }
+
   revalidatePath("/admin/configuracoes");
   return { ok: true };
 }

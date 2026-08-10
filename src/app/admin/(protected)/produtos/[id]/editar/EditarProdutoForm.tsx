@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState, useTransition, useEffect, useRef } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Save, ArrowLeft, Trash2, Info, EyeOff, CheckCircle2, AlertTriangle, Loader2 } from "lucide-react";
 import { Button } from "@/components/common/Button";
@@ -344,11 +343,12 @@ export function EditarProdutoForm({ product, categoryOptions }: Props) {
     <div className="space-y-6">
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <div className="flex items-center gap-3">
-          <Link href={routes.admin.produtos}>
-            <button className="w-8 h-8 rounded-lg bg-dark-alt border border-dark-border flex items-center justify-center hover:bg-dark-hover transition-colors">
-              <ArrowLeft size={15} className="text-muted" />
-            </button>
-          </Link>
+          <button
+            onClick={() => router.back()}
+            className="w-8 h-8 rounded-lg bg-dark-alt border border-dark-border flex items-center justify-center hover:bg-dark-hover transition-colors"
+          >
+            <ArrowLeft size={15} className="text-muted" />
+          </button>
           <h1 className="text-xl font-bold text-dark-text">Editar produto</h1>
         </div>
         <div className="flex gap-2 flex-wrap">

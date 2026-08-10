@@ -1,16 +1,25 @@
 "use client";
 
-import React, { useState, useTransition } from "react";
+import React, { useState, useEffect, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, MessageCircle, Package, StickyNote, Save, ShieldCheck, Copy, CheckCircle2 } from "lucide-react";
+import { ArrowLeft, MessageCircle, Package, StickyNote, Save, ShieldCheck, Copy, CheckCircle2, Truck, Zap } from "lucide-react";
 import { Badge } from "@/components/common/Badge";
 import { OrderStatusSelect } from "@/components/admin/OrderStatusSelect";
 import { OrderStatusTimeline } from "@/components/public/OrderStatusTimeline";
+import { LabelUploader } from "@/components/admin/LabelUploader";
+import { useBreadcrumbLabel } from "@/components/admin/BreadcrumbContext";
 import { Button } from "@/components/common/Button";
 import { Input } from "@/components/common/Input";
-import { formatCurrency, formatDate, formatDateTime } from "@/lib/formatters";
-import { updateOrderStatus, updateOrderInternalNotes, updateOrderTracking, confirmManualPayment } from "@/lib/actions/orders";
+import { formatCurrency, formatDateTime, formatDateTimeSeconds } from "@/lib/formatters";
+import { maskCpf } from "@/lib/utils";
+import {
+  updateOrderStatus,
+  updateOrderInternalNotes,
+  confirmManualPayment,
+  forceReleaseShippingLink,
+  saveShippingLabel,
+} from "@/lib/actions/orders";
 import { routes } from "@/lib/routes";
 import { ORDER_STATUS_COLORS } from "@/types";
 import type { OrderStatus } from "@/types";
@@ -22,15 +31,35 @@ interface Props {
 
 export function PedidoClient({ order }: Props) {
   const router = useRouter();
+  useBreadcrumbLabel(`/admin/pedidos/${order.id}`, order.order_number);
   const [isPending, startTransition] = useTransition();
   const [internalNotes, setInternalNotes] = useState(order.internal_notes ?? "");
   const [notesSaved, setNotesSaved] = useState(false);
-  const [trackingCode, setTrackingCode] = useState(order.tracking_code ?? "");
-  const [trackingUrl, setTrackingUrl] = useState(order.tracking_url ?? "");
-  const [trackingSaved, setTrackingSaved] = useState(false);
   const [manualName, setManualName] = useState("");
   const [summaryCopied, setSummaryCopied] = useState(false);
   const [confirmingPayment, setConfirmingPayment] = useState(false);
+  const [releasingLink, setReleasingLink] = useState(false);
+  const [releaseError, setReleaseError] = useState("");
+  const [linkCopied, setLinkCopied] = useState(false);
+
+  // Sem cron: o cliente pode confirmar frete/etiqueta a qualquer momento pelo
+  // lado dele, e o admin não devia precisar dar F5 pra ver isso aqui. Repete
+  // em segundo plano (router.refresh() só troca os dados do Server Component,
+  // sem resetar formulário/estado local desta tela) + atualiza na hora quando
+  // a aba volta a ficar em foco.
+  useEffect(() => {
+    const interval = setInterval(() => router.refresh(), 5_000);
+    const handleVisible = () => {
+      if (document.visibilityState === "visible") router.refresh();
+    };
+    document.addEventListener("visibilitychange", handleVisible);
+    window.addEventListener("focus", handleVisible);
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener("visibilitychange", handleVisible);
+      window.removeEventListener("focus", handleVisible);
+    };
+  }, [router]);
 
   const handleStatusChange = async (newStatus: OrderStatus) => {
     startTransition(async () => {
@@ -44,14 +73,6 @@ export function PedidoClient({ order }: Props) {
       await updateOrderInternalNotes(order.id, internalNotes);
       setNotesSaved(true);
       setTimeout(() => setNotesSaved(false), 2000);
-    });
-  };
-
-  const handleSaveTracking = () => {
-    startTransition(async () => {
-      await updateOrderTracking(order.id, trackingCode, trackingUrl);
-      setTrackingSaved(true);
-      setTimeout(() => setTrackingSaved(false), 2000);
     });
   };
 
@@ -71,6 +92,31 @@ export function PedidoClient({ order }: Props) {
     startTransition(async () => {
       await confirmManualPayment(order.id);
       setConfirmingPayment(false);
+      router.refresh();
+    });
+  };
+
+  const handleForceRelease = () => {
+    setReleasingLink(true);
+    setReleaseError("");
+    startTransition(async () => {
+      const result = await forceReleaseShippingLink(order.id);
+      setReleasingLink(false);
+      if (result.error) setReleaseError(result.error);
+      else router.refresh();
+    });
+  };
+
+  const handleCopyShippingLink = () => {
+    if (!order.shipping_payment_link) return;
+    navigator.clipboard.writeText(order.shipping_payment_link).catch(() => {});
+    setLinkCopied(true);
+    setTimeout(() => setLinkCopied(false), 2000);
+  };
+
+  const handleLabelUploaded = (url: string, storagePath: string) => {
+    startTransition(async () => {
+      await saveShippingLabel(order.id, url, storagePath);
       router.refresh();
     });
   };
@@ -154,7 +200,7 @@ export function PedidoClient({ order }: Props) {
                       </td>
                       <td className="py-3 text-right text-muted">{item.quantity}</td>
                       <td className="py-3 text-right text-muted">{formatCurrency(item.unit_price_pix)}</td>
-                      <td className="py-3 text-right font-bold text-accent">{formatCurrency(item.subtotal)}</td>
+                      <td className="py-3 text-right font-bold text-dark-text">{formatCurrency(item.subtotal)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -177,7 +223,9 @@ export function PedidoClient({ order }: Props) {
               )}
               <div className="flex justify-between text-sm">
                 <span className="text-muted">Frete {order.shipping_service && `(${order.shipping_service})`}</span>
-                <span className="text-dark-text">{order.shipping_value === 0 ? "Grátis" : formatCurrency(order.shipping_value)}</span>
+                <span className="text-dark-text">
+                  {order.shipping_value > 0 ? formatCurrency(order.shipping_value) : "Pago à parte"}
+                </span>
               </div>
               {order.insurance_enabled && (
                 <div className="flex justify-between text-sm">
@@ -187,7 +235,7 @@ export function PedidoClient({ order }: Props) {
               )}
               <div className="flex justify-between font-bold">
                 <span className="text-dark-text">Total</span>
-                <span className="text-accent text-lg">{formatCurrency(order.total)}</span>
+                <span className="text-dark-text text-lg">{formatCurrency(order.total)}</span>
               </div>
             </div>
           </div>
@@ -239,6 +287,9 @@ export function PedidoClient({ order }: Props) {
               <p className="text-sm font-semibold text-dark-text">{order.customer_name}</p>
               <p className="text-xs text-muted">{order.customer_email}</p>
               <p className="text-xs text-muted">{order.customer_phone}</p>
+              <p className="text-xs text-muted">
+                CPF: {order.customer_cpf ? maskCpf(order.customer_cpf) : "não informado"}
+              </p>
             </div>
           </div>
 
@@ -246,10 +297,18 @@ export function PedidoClient({ order }: Props) {
           <div className="bg-dark-surface rounded-2xl border border-dark-border p-5">
             <h3 className="text-xs font-semibold text-muted uppercase tracking-wider mb-3">Entrega</h3>
             <div className="space-y-1 text-sm text-muted">
-              <p>{order.shipping_street}, {order.shipping_number}</p>
+              {order.shipping_street && (
+                <p>{order.shipping_street}, {order.shipping_number}</p>
+              )}
               {order.shipping_complement && <p>{order.shipping_complement}</p>}
-              <p>{order.shipping_neighborhood}</p>
-              <p>{order.shipping_city}/{order.shipping_state} · {order.shipping_zip_code}</p>
+              {order.shipping_neighborhood && <p>{order.shipping_neighborhood}</p>}
+              <p className="text-dark-text">
+                {order.shipping_city ? `${order.shipping_city}/` : ""}{order.shipping_state || "Estado não informado"}
+                {order.shipping_zip_code && ` · ${order.shipping_zip_code}`}
+              </p>
+              <p className="text-xs text-muted/70">
+                Endereço completo não é coletado — envio combinado à parte via Shopee.
+              </p>
               {order.shipping_service && (
                 <div className="mt-2 flex items-center gap-2">
                   <Package size={13} className="text-accent" />
@@ -263,33 +322,98 @@ export function PedidoClient({ order }: Props) {
                 </div>
               )}
             </div>
-
-            {/* Rastreio — exibido na tela pública "Acompanhar Pedido" quando preenchido */}
-            <div className="mt-4 pt-4 border-t border-dark-border space-y-2.5">
-              <p className="text-xs font-semibold text-muted uppercase tracking-wider">Rastreio</p>
-              <Input
-                label="Código de rastreio"
-                value={trackingCode}
-                onChange={(e) => { setTrackingCode(e.target.value); setTrackingSaved(false); }}
-                placeholder="Ex: BR123456789BR"
-              />
-              <Input
-                label="Link de rastreio"
-                value={trackingUrl}
-                onChange={(e) => { setTrackingUrl(e.target.value); setTrackingSaved(false); }}
-                placeholder="https://..."
-              />
-              <Button
-                variant="secondary"
-                size="sm"
-                leftIcon={<Save size={13} />}
-                onClick={handleSaveTracking}
-                isLoading={isPending}
-              >
-                {trackingSaved ? "Salvo!" : "Salvar rastreio"}
-              </Button>
-            </div>
           </div>
+
+          {/* Envio — link de pagamento de frete, dados do cliente, etiqueta */}
+          {(order.status === "payment_confirmed" ||
+            order.status === "shipping_link_pending" ||
+            order.status === "shipping_paid" ||
+            order.status === "label_issued" ||
+            order.status === "completed") && (
+            <div className="bg-dark-surface rounded-2xl border border-dark-border p-5">
+              <h3 className="text-xs font-semibold text-muted uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                <Truck size={13} />
+                Envio
+              </h3>
+
+              {order.status === "payment_confirmed" && (
+                <div className="space-y-2.5">
+                  <p className="text-xs text-muted">
+                    O link de pagamento do frete é liberado automaticamente pro cliente
+                    ({order.payment_method === "pix" ? "Pix" : "Cartão"}, conforme o prazo em
+                    Configurações &gt; Frete). Pode liberar antes do prazo se precisar.
+                  </p>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    fullWidth
+                    leftIcon={<Zap size={13} />}
+                    onClick={handleForceRelease}
+                    isLoading={releasingLink}
+                  >
+                    Liberar agora
+                  </Button>
+                  {releaseError && <p className="text-xs text-danger">{releaseError}</p>}
+                </div>
+              )}
+
+              {order.shipping_payment_link && (
+                <div className="space-y-1.5">
+                  <p className="text-xs font-semibold text-muted uppercase tracking-wider">Link de frete enviado</p>
+                  <div className="flex gap-2">
+                    <code className="flex-1 bg-dark-alt rounded-xl px-3 py-2 text-xs text-muted font-mono truncate border border-dark-border">
+                      {order.shipping_payment_link}
+                    </code>
+                    <button
+                      onClick={handleCopyShippingLink}
+                      className="w-8 h-8 flex-shrink-0 rounded-xl bg-dark-alt border border-dark-border flex items-center justify-center text-muted hover:text-accent hover:border-accent/40 transition-all"
+                      title="Copiar link"
+                    >
+                      {linkCopied ? <CheckCircle2 size={13} className="text-success" /> : <Copy size={13} />}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {order.shipping_customer_name && (
+                <div className="mt-3 pt-3 border-t border-dark-border space-y-1">
+                  <p className="text-xs font-semibold text-muted uppercase tracking-wider mb-1.5">Dados enviados pelo cliente</p>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted">Nome (Shopee)</span>
+                    <span className="text-dark-text">{order.shipping_customer_name}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted">ID do pedido</span>
+                    <span className="text-dark-text font-mono">{order.shipping_order_id}</span>
+                  </div>
+                </div>
+              )}
+
+              {(order.status === "shipping_paid" || order.shipping_label_url) && (
+                <div className="mt-3 pt-3 border-t border-dark-border space-y-2">
+                  <p className="text-xs font-semibold text-muted uppercase tracking-wider">Etiqueta de envio (PDF)</p>
+                  <LabelUploader
+                    orderId={order.id}
+                    initialUrl={order.shipping_label_url}
+                    onUploaded={handleLabelUploaded}
+                  />
+                </div>
+              )}
+
+              {order.status === "label_issued" && (
+                <div className="mt-3 pt-3 border-t border-dark-border">
+                  <p className="text-xs text-muted">
+                    Aguardando o cliente confirmar a etiqueta. Se ele não confirmar, o pedido
+                    finaliza automaticamente 24h após o envio
+                    {order.label_issued_at && (
+                      <> (enviada em {new Date(order.label_issued_at).toLocaleString("pt-BR")})</>
+                    )}
+                    .
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Pagamento */}
           <div className="bg-dark-surface rounded-2xl border border-dark-border p-5">
@@ -330,41 +454,38 @@ export function PedidoClient({ order }: Props) {
             </div>
           </div>
 
-          {/* Confirmação manual — pagamento feito por fora (link enviado pelo WhatsApp) */}
-          <div className="bg-dark-surface rounded-2xl border border-dark-border p-5">
-            <h3 className="text-xs font-semibold text-muted uppercase tracking-wider mb-3">Confirmação manual</h3>
-            <p className="text-xs text-muted mb-3">
-              Cole o nome que o cliente mandou pra gerar o resumo do pedido.
-            </p>
-            <Input
-              label="Nome enviado pelo cliente"
-              value={manualName}
-              onChange={(e) => setManualName(e.target.value)}
-              placeholder="Nome completo"
-            />
-            <div className="mt-3 space-y-2">
-              <p className="text-xs font-semibold text-muted uppercase tracking-wider">Resumo</p>
-              <pre className="whitespace-pre-wrap break-words text-xs bg-dark-alt border border-dark-border rounded-xl px-3 py-2.5 text-dark-text font-mono">
+          {/* Confirmação manual — pagamento feito por fora (link enviado pelo WhatsApp).
+              Some do pedido assim que confirmado: já cumpriu a função, e deixar visível
+              só polui a tela do admin com um pedido que já está resolvido. */}
+          {order.payment_status !== "confirmed" && (
+            <div className="bg-dark-surface rounded-2xl border border-dark-border p-5">
+              <h3 className="text-xs font-semibold text-muted uppercase tracking-wider mb-3">Confirmação manual</h3>
+              <p className="text-xs text-muted mb-3">
+                Cole o nome que o cliente mandou pra gerar o resumo do pedido.
+              </p>
+              <Input
+                label="Nome enviado pelo cliente"
+                value={manualName}
+                onChange={(e) => setManualName(e.target.value)}
+                placeholder="Nome completo"
+              />
+              <div className="mt-3 space-y-2">
+                <p className="text-xs font-semibold text-muted uppercase tracking-wider">Resumo</p>
+                <pre className="whitespace-pre-wrap break-words text-xs bg-dark-alt border border-dark-border rounded-xl px-3 py-2.5 text-dark-text font-mono">
 {manualSummaryText}
-              </pre>
-              <Button
-                variant="secondary"
-                size="sm"
-                fullWidth
-                leftIcon={summaryCopied ? <CheckCircle2 size={13} /> : <Copy size={13} />}
-                onClick={handleCopySummary}
-              >
-                {summaryCopied ? "Copiado!" : "Copiar resumo"}
-              </Button>
-            </div>
+                </pre>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  fullWidth
+                  leftIcon={summaryCopied ? <CheckCircle2 size={13} /> : <Copy size={13} />}
+                  onClick={handleCopySummary}
+                >
+                  {summaryCopied ? "Copiado!" : "Copiar resumo"}
+                </Button>
+              </div>
 
-            <div className="mt-4 pt-4 border-t border-dark-border">
-              {order.payment_status === "confirmed" ? (
-                <div className="flex items-center gap-2 text-success text-sm font-medium">
-                  <CheckCircle2 size={15} />
-                  Pagamento confirmado
-                </div>
-              ) : (
+              <div className="mt-4 pt-4 border-t border-dark-border">
                 <Button
                   variant="accent"
                   size="sm"
@@ -374,21 +495,27 @@ export function PedidoClient({ order }: Props) {
                 >
                   Confirmar pagamento recebido
                 </Button>
-              )}
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Data */}
           <div className="bg-dark-surface rounded-2xl border border-dark-border p-5">
             <h3 className="text-xs font-semibold text-muted uppercase tracking-wider mb-3">Datas</h3>
-            <div className="space-y-1">
-              <div className="flex justify-between text-sm">
-                <span className="text-muted">Criado</span>
-                <span className="text-dark-text text-xs">{formatDate(order.created_at)}</span>
+            <div className="space-y-2">
+              <div className="flex justify-between text-sm gap-3">
+                <span className="text-muted">Pedido criado</span>
+                <span className="text-dark-text text-xs font-mono text-right">{formatDateTimeSeconds(order.created_at)}</span>
               </div>
-              <div className="flex justify-between text-sm">
+              <div className="flex justify-between text-sm gap-3">
+                <span className="text-muted">Pagamento confirmado</span>
+                <span className="text-dark-text text-xs font-mono text-right">
+                  {order.payment_confirmed_at ? formatDateTimeSeconds(order.payment_confirmed_at) : "—"}
+                </span>
+              </div>
+              <div className="flex justify-between text-sm gap-3">
                 <span className="text-muted">Atualizado</span>
-                <span className="text-dark-text text-xs">{formatDate(order.updated_at)}</span>
+                <span className="text-dark-text text-xs font-mono text-right">{formatDateTimeSeconds(order.updated_at)}</span>
               </div>
             </div>
           </div>

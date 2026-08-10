@@ -127,7 +127,7 @@ export default async function ClienteDetailPage({ params }: Props) {
                         </Link>
                       </td>
                       <td className="px-4 py-3 text-xs text-muted">{formatDate(order.created_at)}</td>
-                      <td className="px-4 py-3 font-bold text-accent">{formatCurrency(order.total)}</td>
+                      <td className="px-4 py-3 font-bold text-dark-text">{formatCurrency(order.total)}</td>
                       <td className="px-4 py-3">
                         <OrderStatusSelect currentStatus={order.status} />
                       </td>
