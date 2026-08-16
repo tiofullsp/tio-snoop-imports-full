@@ -395,7 +395,7 @@ export function PedidoClient({ order }: Props) {
                   })()}
 
                   <Button
-                    variant="secondary"
+                    variant="info"
                     size="sm"
                     fullWidth
                     leftIcon={<Zap size={13} />}
