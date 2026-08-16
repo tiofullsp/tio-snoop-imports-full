@@ -34,20 +34,29 @@ export async function createPaymentPreferenceForOrder(
   )?.cpf_cnpj;
 
   const provider = getPaymentProvider();
-  const result = await provider.createPreference({
-    orderId: order.id,
-    orderNumber: order.order_number,
-    total: Number(order.total),
-    customerName: order.customer_name,
-    customerEmail: order.customer_email,
-    customerPhone: order.customer_phone ?? undefined,
-    customerDocument: customerDocument ?? undefined,
-    items: (order.order_items ?? []).map((i) => ({
-      product_name: i.product_name,
-      quantity: i.quantity,
-      unit_price: Number(i.unit_price_pix),
-    })),
-  });
+  let result;
+  try {
+    result = await provider.createPreference({
+      orderId: order.id,
+      orderNumber: order.order_number,
+      total: Number(order.total),
+      customerName: order.customer_name,
+      customerEmail: order.customer_email,
+      customerPhone: order.customer_phone ?? undefined,
+      customerDocument: customerDocument ?? undefined,
+      items: (order.order_items ?? []).map((i) => ({
+        product_name: i.product_name,
+        quantity: i.quantity,
+        unit_price: Number(i.unit_price_pix),
+      })),
+    });
+  } catch (err) {
+    // O provider lança um erro com mensagem já amigável pro cliente (ver
+    // pyxgate-provider.ts) — sem esse catch, a exceção sobe crua até o Route
+    // Handler e vira um 500 sem corpo JSON, e o cliente nunca vê o motivo
+    // real (só o fallback genérico "Tente novamente").
+    return { error: err instanceof Error ? err.message : "Não foi possível gerar o pagamento agora." };
+  }
 
   const pixQrUrl = result.pixQrBase64 ? `data:image/png;base64,${result.pixQrBase64}` : null;
 

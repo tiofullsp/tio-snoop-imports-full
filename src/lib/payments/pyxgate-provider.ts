@@ -130,8 +130,15 @@ export const pyxgateProvider: PaymentProvider = {
         },
         metadata: { order_id: input.orderId, order_number: input.orderNumber },
       },
-      // UUID único por pedido — evita cobrança Pix duplicada em retentativa.
-      input.orderId
+      // Inclui um sufixo variável (nao so o orderId) -- a PYX Gate cacheia a
+      // RESPOSTA por Idempotency-Key, inclusive quando ela mesma falha (ver
+      // relato ao suporte: pedido TF00065 ficou preso pra sempre em
+      // "payment_creation_failed" porque toda retentativa reenviava a mesma
+      // chave e recebia de volta o mesmo erro cacheado). O botão "Tentar
+      // novamente" só reexecuta isso quando ainda não existe pix_code salvo
+      // (ver needsGeneration em PagamentoClient.tsx), entao nao ha risco real
+      // de cobranca duplicada em gerar uma chave nova a cada tentativa.
+      `${input.orderId}:${Date.now()}`
     );
 
     if (!ok) {

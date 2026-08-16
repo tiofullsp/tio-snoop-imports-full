@@ -497,24 +497,37 @@ export function PagamentoClient({
           </p>
         </div>
 
-        {/* Timer — só depois que o Pix (com prazo real) já existe */}
+        {/* Timer — só depois que o Pix (com prazo real) já existe. No cartão
+            não há "link" nenhum expirando (o formulário continua valendo
+            depois do prazo — isPixExpired só afeta a aba Pix), então o texto
+            e o estado de "expirado" só fazem sentido na aba Pix. */}
         {!needsGeneration && (
           <div
             className={[
               "flex items-center justify-center gap-2 mb-6 p-3 rounded-xl border",
-              isPixExpired ? "bg-danger/5 border-danger/20" : "bg-warning/5 border-warning/20",
+              isPixExpired && activeTab === "pix" ? "bg-danger/5 border-danger/20" : "bg-warning/5 border-warning/20",
             ].join(" ")}
           >
-            <Clock size={16} className={isPixExpired ? "text-danger" : "text-warning"} />
-            <span className={["text-sm font-medium", isPixExpired ? "text-danger" : "text-warning"].join(" ")}>
-              {isPixExpired ? "Esse código Pix expirou" : `Pague em ${mins}:${secs} antes do link expirar`}
+            <Clock size={16} className={isPixExpired && activeTab === "pix" ? "text-danger" : "text-warning"} />
+            <span className={["text-sm font-medium", isPixExpired && activeTab === "pix" ? "text-danger" : "text-warning"].join(" ")}>
+              {activeTab === "card"
+                ? `Finalize o pagamento em ${mins}:${secs}`
+                : isPixExpired
+                ? "Esse código Pix expirou"
+                : `Pague em ${mins}:${secs} antes do link expirar`}
             </span>
           </div>
         )}
 
-        {hasPix ? (
+        {hasPix || (activeTab === "card" && CARD_PAYMENT_ENABLED) ? (
           <>
-            {/* Seletor Pix / Cartão — cartão só aparece quando CARD_PAYMENT_ENABLED */}
+            {/* Seletor Pix / Cartão — cartão só aparece quando CARD_PAYMENT_ENABLED.
+                A condição acima não pode ser só "hasPix": pedido com
+                payment_method "card" nunca gera Pix (de propósito, ver
+                checkout.ts), então "hasPix" sozinho deixava o formulário de
+                cartão inalcançável — a tela ficava em branco (nem pix, nem
+                cartão, nem o card de "gerando/erro", já que needsGeneration
+                só considera activeTab "pix"). */}
             {CARD_PAYMENT_ENABLED && (
               <div className="flex gap-2 bg-dark-alt rounded-xl p-1 mb-6">
                 <button
