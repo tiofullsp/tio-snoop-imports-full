@@ -1,5 +1,7 @@
 import { createServiceClient } from "@/lib/supabase/server";
 import { maybeReleaseShippingLink, maybeAutoCompleteOrder } from "@/lib/orders/shipping-link";
+import { computeShippingLinkDelayReleaseAt, computeEffectiveShippingLinkReleaseAt } from "@/lib/orders/shipping-link-timing";
+import { brasiliaDayStartUTC } from "@/lib/timezone";
 import type {
   Order, OrderItem, OrderStatus, OrderStatusHistory,
   PaymentStatus, PaymentMethod,
@@ -12,6 +14,11 @@ import type { DbOrder, DbOrderItem, DbOrderStatusHistory } from "@/types/databas
 
 export interface AdminOrder extends Order {
   item_count: number;
+  // Só preenchido quando status ainda é "payment_confirmed" — estimativa de
+  // quando o link de frete libera sozinho (prazo configurado + bloqueio de
+  // fim de semana, ver shipping-link-timing.ts). Alimenta o cronômetro e o
+  // aviso de "fora do expediente" no admin.
+  shipping_link_release_at?: string;
 }
 
 export interface DashboardKPIs {
@@ -232,7 +239,29 @@ export async function getOrderByIdAdmin(id: string): Promise<AdminOrder | null> 
     if (signed) row.shipping_label_url = signed.signedUrl;
   }
 
-  return toAdminOrder(row, true);
+  // Ainda aguardando liberação — calcula a estimativa pro cronômetro do
+  // admin (não recalcula a liberação em si, só decide quando o card "Envio"
+  // mostra quanto falta / aviso de fim de semana).
+  let shippingLinkReleaseAt: string | undefined;
+  if (row.status === "payment_confirmed" && row.payment_confirmed_at) {
+    const { data: settings } = await service
+      .from("store_settings_private")
+      .select("shipping_link_delay_pix_hours, shipping_link_delay_card_hours")
+      .eq("lock", true)
+      .single();
+
+    if (settings) {
+      const delayReleaseAt = computeShippingLinkDelayReleaseAt({
+        paymentMethod: row.payment_method,
+        paymentConfirmedAt: row.payment_confirmed_at,
+        delayPixHours: Number(settings.shipping_link_delay_pix_hours),
+        delayCardHours: Number(settings.shipping_link_delay_card_hours),
+      });
+      shippingLinkReleaseAt = computeEffectiveShippingLinkReleaseAt(delayReleaseAt).toISOString();
+    }
+  }
+
+  return { ...toAdminOrder(row, true), shipping_link_release_at: shippingLinkReleaseAt };
 }
 
 export interface OrderPaymentInfo {
@@ -271,9 +300,10 @@ export async function getOrderPayment(orderId: string): Promise<OrderPaymentInfo
 export async function getDashboardKPIs(): Promise<DashboardKPIs> {
   const service = createServiceClient();
 
-  const todayStart = new Date();
-  todayStart.setHours(0, 0, 0, 0);
-  const todayStr = todayStart.toISOString();
+  // "Hoje" em horário de Brasília, não meia-noite UTC (o servidor roda em
+  // UTC na Vercel — meia-noite UTC é 21h de Brasília do dia anterior, o que
+  // fazia pedidos de hoje inteiros ficarem de fora da contagem).
+  const todayStr = brasiliaDayStartUTC().toISOString();
 
   const [
     todayOrdersResult,

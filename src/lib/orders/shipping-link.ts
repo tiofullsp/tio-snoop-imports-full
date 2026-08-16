@@ -1,5 +1,11 @@
 import { createServiceClient } from "@/lib/supabase/server";
 import { transitionOrderStatus } from "./transition";
+import {
+  isBlockedReleaseDay,
+  computeShippingLinkDelayReleaseAt,
+} from "./shipping-link-timing";
+
+export { isBlockedReleaseDay, CARD_RELEASE_MORNING_HOUR, snapToMorningSaoPaulo } from "./shipping-link-timing";
 
 type ServiceClient = ReturnType<typeof createServiceClient>;
 
@@ -20,40 +26,6 @@ interface OrderForRelease {
 export interface ShippingLinkRelease {
   status: "shipping_link_pending";
   shipping_payment_link: string;
-}
-
-// Sexta, sábado e domingo ficam de fora da liberação automática — a
-// logística (Shopee/Correios) não roda no fim de semana, então liberar o
-// link nesses dias só faz o cliente pagar o frete e ficar sem novidade até
-// segunda. Sem cron: o pedido simplesmente não libera enquanto isso, e
-// libera sozinho assim que alguém ler o pedido num dia útil (mesmo padrão
-// "sob demanda" do resto deste arquivo). Não afeta a liberação manual
-// (force:true) — essa continua funcionando em qualquer dia, é exceção do admin.
-export function isBlockedReleaseDay(date: Date): boolean {
-  const weekday = new Intl.DateTimeFormat("en-US", {
-    timeZone: "America/Sao_Paulo",
-    weekday: "short",
-  }).format(date);
-  return weekday === "Fri" || weekday === "Sat" || weekday === "Sun";
-}
-
-// Horário em que o link do cartão libera — cedo de manhã, não na hora exata
-// (ex: 22h) em que o prazo de dias completou. Só se aplica ao cartão (Pix
-// continua instantâneo, 0h de espera). América/Sao_Paulo não observa horário
-// de verão desde 2019, então -03:00 é um offset fixo seguro aqui.
-export const CARD_RELEASE_MORNING_HOUR = 8;
-
-export function snapToMorningSaoPaulo(date: Date, hour: number): Date {
-  const parts = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "America/Sao_Paulo",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).formatToParts(date);
-  const y = parts.find((p) => p.type === "year")!.value;
-  const m = parts.find((p) => p.type === "month")!.value;
-  const d = parts.find((p) => p.type === "day")!.value;
-  return new Date(`${y}-${m}-${d}T${String(hour).padStart(2, "0")}:00:00-03:00`);
 }
 
 // Sem cron: a liberação do link de frete é calculada sob demanda, chamada em
@@ -80,16 +52,13 @@ export async function maybeReleaseShippingLink(
   if (!settings) return null;
 
   if (!options.force) {
-    const delayHours =
-      order.payment_method === "card"
-        ? Number(settings.shipping_link_delay_card_hours)
-        : Number(settings.shipping_link_delay_pix_hours);
-
-    let releaseAt = new Date(order.payment_confirmed_at).getTime() + delayHours * 60 * 60 * 1000;
-    if (order.payment_method === "card") {
-      releaseAt = snapToMorningSaoPaulo(new Date(releaseAt), CARD_RELEASE_MORNING_HOUR).getTime();
-    }
-    if (Date.now() < releaseAt) return null;
+    const releaseAt = computeShippingLinkDelayReleaseAt({
+      paymentMethod: order.payment_method,
+      paymentConfirmedAt: order.payment_confirmed_at,
+      delayPixHours: Number(settings.shipping_link_delay_pix_hours),
+      delayCardHours: Number(settings.shipping_link_delay_card_hours),
+    });
+    if (Date.now() < releaseAt.getTime()) return null;
 
     if (isBlockedReleaseDay(new Date())) return null;
   }

@@ -3,7 +3,8 @@
 import React, { useState, useEffect, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, MessageCircle, Package, StickyNote, Save, ShieldCheck, Copy, CheckCircle2, Truck, Zap } from "lucide-react";
+import { ArrowLeft, MessageCircle, Package, StickyNote, Save, ShieldCheck, Copy, CheckCircle2, Truck, Zap, Clock, AlertTriangle } from "lucide-react";
+import { isBlockedReleaseDay } from "@/lib/orders/shipping-link-timing";
 import { Badge } from "@/components/common/Badge";
 import { OrderStatusSelect } from "@/components/admin/OrderStatusSelect";
 import { OrderStatusTimeline } from "@/components/public/OrderStatusTimeline";
@@ -41,6 +42,16 @@ export function PedidoClient({ order }: Props) {
   const [releasingLink, setReleasingLink] = useState(false);
   const [releaseError, setReleaseError] = useState("");
   const [linkCopied, setLinkCopied] = useState(false);
+
+  // Cronômetro do card "Envio" (dias/horas/min/seg até o link de frete
+  // liberar sozinho) — só precisa de um tick por segundo local, não de
+  // buscar dado novo (o router.refresh() de 5 em 5s já cuida de refletir a
+  // liberação de verdade quando ela acontecer).
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, []);
 
   // Sem cron: o cliente pode confirmar frete/etiqueta a qualquer momento pelo
   // lado dele, e o admin não devia precisar dar F5 pra ver isso aqui. Repete
@@ -343,6 +354,46 @@ export function PedidoClient({ order }: Props) {
                     ({order.payment_method === "pix" ? "Pix" : "Cartão"}, conforme o prazo em
                     Configurações &gt; Frete). Pode liberar antes do prazo se precisar.
                   </p>
+
+                  {isBlockedReleaseDay(new Date(now)) && (
+                    <div className="flex items-start gap-2 p-2.5 rounded-xl bg-warning/5 border border-warning/20">
+                      <AlertTriangle size={13} className="text-warning flex-shrink-0 mt-0.5" />
+                      <p className="text-xs text-warning">
+                        Fora do expediente (sexta a domingo a logística não roda) — a liberação
+                        automática fica pausada e retoma sozinha no próximo dia útil, assim que
+                        alguém abrir este pedido.
+                      </p>
+                    </div>
+                  )}
+
+                  {order.shipping_link_release_at && (() => {
+                    const remainingMs = Math.max(0, new Date(order.shipping_link_release_at).getTime() - now);
+                    const totalSeconds = Math.floor(remainingMs / 1000);
+                    const days = Math.floor(totalSeconds / 86400);
+                    const hours = Math.floor((totalSeconds % 86400) / 3600);
+                    const minutes = Math.floor((totalSeconds % 3600) / 60);
+                    const seconds = totalSeconds % 60;
+                    return (
+                      <div className="flex items-center gap-2 p-2.5 rounded-xl bg-dark-alt border border-dark-border">
+                        <Clock size={13} className="text-muted flex-shrink-0" />
+                        <p className="text-xs text-dark-text">
+                          {remainingMs > 0 ? (
+                            <>
+                              Libera em{" "}
+                              <span className="font-mono font-semibold">
+                                {days > 0 && `${days}d `}
+                                {String(hours).padStart(2, "0")}h {String(minutes).padStart(2, "0")}m{" "}
+                                {String(seconds).padStart(2, "0")}s
+                              </span>
+                            </>
+                          ) : (
+                            "Prazo cumprido — libera assim que o pedido for aberto de novo."
+                          )}
+                        </p>
+                      </div>
+                    );
+                  })()}
+
                   <Button
                     variant="secondary"
                     size="sm"
