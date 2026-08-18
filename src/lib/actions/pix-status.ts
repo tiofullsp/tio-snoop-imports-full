@@ -36,7 +36,7 @@ export async function checkPixPaymentStatus(orderId: string): Promise<{ status: 
   if (!payment?.external_id) return { status: "pending" };
   if (payment.status === "failed") return { status: "failed" };
 
-  const provider = getPaymentProvider();
+  const provider = await getPaymentProvider();
   const verification = await provider.verifyPayment(payment.external_id);
 
   if (verification.status === "approved") {

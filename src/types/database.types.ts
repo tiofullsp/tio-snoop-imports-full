@@ -973,6 +973,7 @@ export type Database = {
           mercado_pago_public_key: string | null;
           mercado_pago_secret_key: string | null;  // SEGREDO — nunca enviar ao cliente
           maintenance_mode:        boolean;
+          payment_mode:            string; // "gateway" | "manual"
           shipping_payment_links:        Json; // [{id, label, url, is_active}], até 5
           shipping_link_delay_pix_hours:  number;
           shipping_link_delay_card_hours: number;
@@ -987,6 +988,7 @@ export type Database = {
           mercado_pago_public_key?: string | null;
           mercado_pago_secret_key?: string | null;
           maintenance_mode?:        boolean;
+          payment_mode?:            string;
           shipping_payment_links?:        Json;
           shipping_link_delay_pix_hours?:  number;
           shipping_link_delay_card_hours?: number;

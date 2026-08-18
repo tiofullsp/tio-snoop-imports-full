@@ -71,6 +71,7 @@ export interface AdminStoreSettings {
   // Pontos percentuais inteiros (25 = 25%) — o que o admin digita no formulário.
   insurance_percentage: number;
   maintenance_mode: boolean;
+  payment_mode: "gateway" | "manual";
   shipping_payment_links: ShippingPaymentLinkSetting[];
   shipping_link_delay_pix_hours: number;
   shipping_link_delay_card_hours: number;
@@ -84,7 +85,7 @@ export async function getAdminStoreSettings(): Promise<AdminStoreSettings> {
     service.from("store_settings_public").select("*").eq("lock", true).single(),
     service
       .from("store_settings_private")
-      .select("maintenance_mode, shipping_payment_links, shipping_link_delay_pix_hours, shipping_link_delay_card_hours")
+      .select("maintenance_mode, payment_mode, shipping_payment_links, shipping_link_delay_pix_hours, shipping_link_delay_card_hours")
       .eq("lock", true)
       .single(),
   ]);
@@ -95,7 +96,7 @@ export async function getAdminStoreSettings(): Promise<AdminStoreSettings> {
   const p = pub as DbStoreSettingsPublic;
   const s = priv as Pick<
     DbStoreSettingsPrivate,
-    "maintenance_mode" | "shipping_payment_links" | "shipping_link_delay_pix_hours" | "shipping_link_delay_card_hours"
+    "maintenance_mode" | "payment_mode" | "shipping_payment_links" | "shipping_link_delay_pix_hours" | "shipping_link_delay_card_hours"
   >;
 
   return {
@@ -108,6 +109,7 @@ export async function getAdminStoreSettings(): Promise<AdminStoreSettings> {
     cnpj_cpf: p.cnpj_cpf ?? undefined,
     insurance_percentage: Number(p.insurance_percentage),
     maintenance_mode: s.maintenance_mode,
+    payment_mode: s.payment_mode === "manual" ? "manual" : "gateway",
     shipping_payment_links: (s.shipping_payment_links as unknown as ShippingPaymentLinkSetting[] | null) ?? [],
     shipping_link_delay_pix_hours: Number(s.shipping_link_delay_pix_hours),
     shipping_link_delay_card_hours: Number(s.shipping_link_delay_card_hours),
@@ -142,6 +144,27 @@ export async function isMaintenanceModeActive(): Promise<boolean> {
     return data.maintenance_mode;
   } catch {
     return false;
+  }
+}
+
+// Lido em getPaymentProvider() (server) e na tela de pagamento (client, via
+// prop) — chave de emergência pra tirar a PYX Gate da jogada sem deploy
+// quando ela cai. Fail-safe pro lado errado importa aqui: se a leitura falhar
+// por qualquer motivo, cai em "gateway" (comportamento atual), nunca trava o
+// checkout inteiro em manual por causa de um erro transitório de leitura.
+export async function getPaymentMode(): Promise<"gateway" | "manual"> {
+  try {
+    const service = createServiceClient();
+    const { data, error } = await service
+      .from("store_settings_private")
+      .select("payment_mode")
+      .eq("lock", true)
+      .single();
+
+    if (error || !data) return "gateway";
+    return data.payment_mode === "manual" ? "manual" : "gateway";
+  } catch {
+    return "gateway";
   }
 }
 

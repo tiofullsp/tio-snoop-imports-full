@@ -60,6 +60,7 @@ export function ConfiguracoesClient({ initialSettings, initialAdmins, currentAdm
     logo_url: initialSettings.logo_url ?? "",
     insurance_percentage: initialSettings.insurance_percentage,
     maintenance_mode: initialSettings.maintenance_mode,
+    payment_mode: initialSettings.payment_mode,
   });
 
   const set = <K extends keyof StoreSettingsFormData>(key: K, value: StoreSettingsFormData[K]) =>
@@ -228,16 +229,39 @@ export function ConfiguracoesClient({ initialSettings, initialAdmins, currentAdm
 
         <TabContent value="pagamentos" active={activeTab}>
           <div className="space-y-4 mt-6">
-            <SectionCard title="Pagamento — Pix (SupraPay) + Cartão (Zendry)">
+            <SectionCard title="Pagamento — Pix + Cartão (PYX Gate)">
               <p className="text-sm text-muted leading-relaxed">
-                O checkout gera automaticamente um QR Code Pix embutido na própria página, via
-                SupraPay. Pagamento por cartão continua embutido também, processado pelo Zendry
-                (com 3DS). O cliente escolhe Pix ou cartão na tela de pagamento do pedido. Não há
-                configuração manual de chave Pix ou cartão nesta tela.
+                O checkout gera automaticamente um QR Code Pix embutido na própria página, e
+                cartão (com 3DS) também fica embutido — os dois via PYX Gate. O cliente escolhe
+                Pix ou cartão já no checkout. Não há configuração manual de chave Pix ou cartão
+                nesta tela — as credenciais ficam nas variáveis de ambiente do servidor.
               </p>
-              <p className="text-xs text-muted">
-                As credenciais de integração (SupraPay e Zendry) ficam nas variáveis de ambiente do servidor, não aqui.
-              </p>
+            </SectionCard>
+            <SectionCard title="Modo de pagamento manual (emergência)">
+              <div className="flex items-center gap-4">
+                <Toggle
+                  checked={form.payment_mode === "manual"}
+                  onChange={(v) => set("payment_mode", v ? "manual" : "gateway")}
+                />
+                <div>
+                  <p className="text-sm text-dark-text">Desativar PYX Gate — pagamento manual por WhatsApp</p>
+                  <p className="text-xs text-muted">
+                    Use quando a PYX Gate estiver fora do ar. O cliente completa o checkout
+                    normalmente, mas a tela de pagamento não mostra Pix nem cartão — só um botão
+                    que leva direto pro WhatsApp pra combinar o pagamento por fora. A confirmação
+                    também passa a ser manual, feita por você no painel do pedido.
+                  </p>
+                </div>
+              </div>
+              {form.payment_mode === "manual" && (
+                <div className="flex items-start gap-2 p-3 rounded-xl bg-warning/5 border border-warning/20">
+                  <AlertCircle size={15} className="text-warning flex-shrink-0 mt-0.5" />
+                  <p className="text-xs text-warning">
+                    Ativo agora — nenhum pedido novo vai gerar Pix ou cobrar cartão até você
+                    desligar essa chave de novo.
+                  </p>
+                </div>
+              )}
             </SectionCard>
           </div>
         </TabContent>

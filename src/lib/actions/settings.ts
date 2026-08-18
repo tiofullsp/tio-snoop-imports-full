@@ -28,6 +28,10 @@ export interface StoreSettingsFormData {
   logo_url: string;
   insurance_percentage: number;
   maintenance_mode: boolean;
+  // Chave de emergência: "manual" tira a PYX Gate da jogada (sem deploy) —
+  // checkout normal, mas a tela de pagamento só mostra um botão pro
+  // WhatsApp. Ver src/lib/payments/index.ts (getPaymentProvider).
+  payment_mode: "gateway" | "manual";
 }
 
 export async function updateStoreSettings(
@@ -69,6 +73,7 @@ export async function updateStoreSettings(
     .from("store_settings_private")
     .update({
       maintenance_mode: data.maintenance_mode,
+      payment_mode: data.payment_mode,
       updated_at: new Date().toISOString(),
     })
     .eq("lock", true);

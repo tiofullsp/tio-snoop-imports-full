@@ -50,7 +50,7 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const provider = getPaymentProvider();
+    const provider = await getPaymentProvider();
     const verification = await provider.verifyPayment(externalId);
 
     const { data: payment } = await service

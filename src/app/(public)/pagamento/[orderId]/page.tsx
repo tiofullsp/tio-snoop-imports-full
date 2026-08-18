@@ -1,7 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 import { headers } from "next/headers";
 import { getOrderByIdAdmin, getOrderPayment } from "@/lib/db/orders";
-import { getPublicStoreSettings } from "@/lib/db/settings";
+import { getPublicStoreSettings, getPaymentMode } from "@/lib/db/settings";
 import { isStubPaymentProvider } from "@/lib/payments";
 import { routes } from "@/lib/routes";
 import { PagamentoClient } from "@/components/public/PagamentoClient";
@@ -22,6 +22,7 @@ export default async function PagamentoPage({
 
   const payment = await getOrderPayment(orderId);
   const settings = await getPublicStoreSettings();
+  const paymentMode = await getPaymentMode();
 
   // IP do cliente pro threeds_data do 3DS (ip_address) — capturado no server,
   // não dá pra confiar em nada que o próprio navegador reporte sobre si mesmo.
@@ -41,7 +42,8 @@ export default async function PagamentoPage({
       pixQrUrl={payment?.pix_qr_url ?? null}
       checkoutUrl={payment?.checkout_url ?? null}
       expiresAt={payment?.pix_expiration ?? null}
-      isStub={isStubPaymentProvider()}
+      isStub={await isStubPaymentProvider()}
+      paymentMode={paymentMode}
       whatsappNumber={settings.whatsapp_number}
       clientIp={clientIp}
     />

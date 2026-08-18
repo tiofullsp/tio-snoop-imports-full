@@ -17,7 +17,6 @@ import { maskCpf, maskCep } from "@/lib/utils";
 import { UF_TO_STATE_NAME } from "@/lib/brazilian-states";
 import { payWithCard } from "@/lib/actions/card-payment";
 import { checkPixPaymentStatus } from "@/lib/actions/pix-status";
-import { PAYMENT_MODE } from "@/lib/payments/mode";
 import { computeCardTotalForInstallments, MAX_CARD_INSTALLMENTS } from "@/lib/pricing";
 
 interface PagamentoClientProps {
@@ -35,6 +34,11 @@ interface PagamentoClientProps {
   // importante, evita gerar uma cobrança Pix à toa na PyxGate quando o
   // cliente já veio com intenção de pagar no cartão.
   initialPaymentMethod: "pix" | "card";
+  // Chave de emergência (Configurações > Pagamentos, store_settings_private)
+  // — em "manual" a tela não fala com a PYX Gate de jeito nenhum, só mostra
+  // um botão pro WhatsApp. Lida no servidor a cada carregamento da página,
+  // então desativar volta ao normal sem precisar de deploy.
+  paymentMode: "gateway" | "manual";
 }
 
 declare global {
@@ -88,7 +92,7 @@ const CARD_BRAND_OPTIONS = [
 // 3DS é obrigatório — o desafio roda no navegador via
 // ZendrySDKThreeds.init_threeds() antes de submeter o pagamento (a PYX Gate
 // roteia o desafio de cartão pela Zendry por trás, ver
-// src/app/api/payments/pyxgate-3ds-token). Ver src/lib/payments/mode.ts.
+// src/app/api/payments/pyxgate-3ds-token).
 const CARD_PAYMENT_ENABLED = true;
 
 export function PagamentoClient({
@@ -103,6 +107,7 @@ export function PagamentoClient({
   whatsappNumber,
   clientIp,
   initialPaymentMethod,
+  paymentMode,
 }: PagamentoClientProps) {
   const router = useRouter();
   const [copied, setCopied] = useState(false);
@@ -414,8 +419,9 @@ export function PagamentoClient({
   };
 
   // ── Modo manual: sem gateway embutido — o link de pagamento é enviado à
-  // parte pelo WhatsApp e a confirmação é manual (ver PAYMENT_MODE). ────────
-  if (PAYMENT_MODE === "manual") {
+  // parte pelo WhatsApp e a confirmação é manual (ver Configurações >
+  // Pagamentos no admin, chave de emergência pra quando a PYX Gate cai). ────
+  if (paymentMode === "manual") {
     const whatsappMessage = `Olá! Fiz o pedido #${orderNumber} (${formatCurrency(total)}) e estou aguardando o link de pagamento.`;
 
     return (
@@ -429,6 +435,13 @@ export function PagamentoClient({
             <h1 className="text-2xl font-bold text-dark-text mb-2">Recebemos seu pedido!</h1>
             <p className="text-muted">
               Pedido #{orderNumber} · Total: <span className="text-dark-text font-bold">{formatCurrency(total)}</span>
+            </p>
+          </div>
+
+          <div className="flex items-start gap-2.5 p-4 rounded-2xl bg-warning/5 border border-warning/20 mb-6">
+            <Clock size={16} className="text-warning flex-shrink-0 mt-0.5" />
+            <p className="text-sm text-warning font-medium">
+              Estamos com o Pix fora do ar no momento. Para concluir a compra, clique no botão abaixo e conclua a mensagem no WhatsApp.
             </p>
           </div>
 
@@ -447,7 +460,7 @@ export function PagamentoClient({
               className="relative w-full"
             >
               <Button variant="accent" fullWidth size="lg" leftIcon={<MessageCircle size={16} />}>
-                Falar no WhatsApp agora
+                Clique aqui para concluir a compra
               </Button>
             </a>
           </div>

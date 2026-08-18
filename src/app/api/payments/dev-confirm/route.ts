@@ -10,7 +10,7 @@ import { processPaymentResult } from "@/lib/payments/process";
 // que um provider real for plugado, esse endpoint deixa de fazer efeito,
 // porque só o webhook real (com verificação no gateway) pode confirmar pagamento.
 export async function POST(request: NextRequest) {
-  if (!isStubPaymentProvider()) {
+  if (!(await isStubPaymentProvider())) {
     return NextResponse.json(
       { error: "Confirmação manual desabilitada — gateway de pagamento real está configurado." },
       { status: 403 }

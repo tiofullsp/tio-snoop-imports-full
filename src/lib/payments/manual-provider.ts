@@ -5,7 +5,8 @@ import type {
   PaymentVerificationResult,
 } from "./types";
 
-// Provider usado quando PAYMENT_MODE === "manual" (ver ./mode.ts) — não fala
+// Provider usado quando payment_mode === "manual" (ver getPaymentMode() em
+// @/lib/db/settings, Configurações > Pagamentos no admin) — não fala
 // com nenhum gateway. O pedido só é registrado; o pagamento acontece por
 // fora (link enviado pelo WhatsApp) e a confirmação é manual, feita pelo
 // admin no painel do pedido (processPaymentResult chamado direto por lá).

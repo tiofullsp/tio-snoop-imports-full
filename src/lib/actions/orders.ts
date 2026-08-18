@@ -78,7 +78,7 @@ export async function updateOrderStatus(
 
 // ---------------------------------------------------------------------------
 // confirmManualPayment
-// Usada no fluxo PAYMENT_MODE === "manual" (ver src/lib/payments/mode.ts):
+// Usada no fluxo de pagamento manual (Configurações > Pagamentos no admin):
 // o admin confirma que recebeu o pagamento por fora (link enviado pelo
 // WhatsApp) depois de conferir nome + ID do pedido mandados pelo cliente.
 // Reaproveita processPaymentResult — a mesma função usada por webhook real e

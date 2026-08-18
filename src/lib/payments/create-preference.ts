@@ -33,7 +33,7 @@ export async function createPaymentPreferenceForOrder(
     order.customers as unknown as { cpf_cnpj: string | null } | null
   )?.cpf_cnpj;
 
-  const provider = getPaymentProvider();
+  const provider = await getPaymentProvider();
   let result;
   try {
     result = await provider.createPreference({
