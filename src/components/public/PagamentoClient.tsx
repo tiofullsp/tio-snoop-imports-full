@@ -441,7 +441,7 @@ export function PagamentoClient({
           <div className="flex items-start gap-2.5 p-4 rounded-2xl bg-warning/5 border border-warning/20 mb-6">
             <Clock size={16} className="text-warning flex-shrink-0 mt-0.5" />
             <p className="text-sm text-warning font-medium">
-              Estamos com o Pix fora do ar no momento. Para concluir a compra, clique no botão abaixo e conclua a mensagem no WhatsApp.
+              Estamos com o Pix fora do ar no momento. Clique no botão abaixo e conclua a compra por mensagem no WhatsApp.
             </p>
           </div>
 
@@ -451,7 +451,7 @@ export function PagamentoClient({
               <MessageCircle size={28} className="text-whatsapp" />
             </div>
             <p className="relative text-sm text-muted max-w-sm">
-              Nossa equipe vai te chamar no WhatsApp em instantes com o link de pagamento (Pix ou cartão).
+              Nossa equipe vai te atender no WhatsApp pra finalizar seu pagamento (Pix ou cartão).
             </p>
             <a
               href={generateStoreWhatsAppLink(whatsappNumber, whatsappMessage)}
