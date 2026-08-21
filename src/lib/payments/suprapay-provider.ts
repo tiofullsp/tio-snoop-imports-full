@@ -59,6 +59,11 @@ async function supraPayRequest(
     "X-Supra-Timestamp": timestamp,
     "X-Supra-Nonce": nonce,
     "X-Supra-Signature": signature,
+    // SEM isso, o backend deles (Laravel) não faz content negotiation pra
+    // JSON e devolve o HTML do próprio painel/site em vez da API — a
+    // resposta vem com status 200 mas sem txid/qr_code nenhum. Confirmado
+    // e corrigido no projeto irmão (Tio Snoop) antes de replicar aqui.
+    Accept: "application/json",
   };
   if (body != null) headers["Content-Type"] = "application/json";
   if (idempotencyKey) headers["Idempotency-Key"] = idempotencyKey;
@@ -67,6 +72,10 @@ async function supraPayRequest(
     method,
     headers,
     body: body != null ? bodyStr : undefined,
+    // Sem seguir redirect automaticamente — se a API deles redirecionar
+    // (ex: pra tela de login), isso vira um "not ok" claro em vez de
+    // silenciosamente acabar servindo HTML como se fosse sucesso.
+    redirect: "manual",
   });
 
   let json: unknown = null;
