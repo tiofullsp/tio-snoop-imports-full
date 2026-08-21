@@ -10,19 +10,20 @@ import { getPaymentMode } from "@/lib/db/settings";
 // Fábrica do provider de pagamento ativo. payment_mode vem do banco
 // (store_settings_private, chave de emergência ligada em Configurações >
 // Pagamentos) — enquanto for "manual", o manualPaymentProvider tem
-// prioridade sobre tudo, sem precisar de deploy pra desativar a PYX Gate
-// quando ela cai.
+// prioridade sobre tudo, sem precisar de deploy.
 //
-// Pix é sempre via PYX Gate (PYXGATE_SECRET_KEY) — cartão também é PYX
-// Gate, mas src/lib/actions/card-payment.ts chama a API direto, sem passar
-// por getPaymentProvider(), então não é afetado por essa troca (mas nem
-// chega a ser chamado em modo manual: a tela de pagamento não mostra
-// formulário de cartão nesse modo). SupraPay/Zendry/PicPay ficam como
-// caminho de rollback do Pix caso a PYX Gate seja desativada de vez.
+// Pix é via SupraPay (prioridade sobre PYX Gate desde que a PYX Gate teve
+// instabilidade recorrente — ver histórico). Cartão foi descontinuado como
+// forma de pagamento (decisão do negócio): card-payment.ts chamava a PYX
+// Gate direto, sem passar por getPaymentProvider(), mas a tela de
+// pagamento não mostra mais formulário de cartão (CARD_PAYMENT_ENABLED =
+// false em PagamentoClient.tsx), então esse caminho não é mais acionado.
+// PYX Gate/Zendry/PicPay ficam como fallback do Pix caso a SupraPay saia
+// do ar.
 export async function getPaymentProvider(): Promise<PaymentProvider> {
   if ((await getPaymentMode()) === "manual") return manualPaymentProvider;
-  if (process.env.PYXGATE_SECRET_KEY) return pyxgateProvider;
   if (process.env.SUPRAPAY_API_KEY && process.env.SUPRAPAY_API_SECRET) return suprapayProvider;
+  if (process.env.PYXGATE_SECRET_KEY) return pyxgateProvider;
   if (process.env.ZENDRY_CLIENT_ID && process.env.ZENDRY_CLIENT_SECRET) return zendryProvider;
   if (process.env.PICPAY_TOKEN) return picpayProvider;
   return stubPaymentProvider;

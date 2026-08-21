@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
-import { AlertCircle, ShieldCheck, QrCode, CreditCard, Check } from "lucide-react";
+import { AlertCircle, QrCode, ShieldCheck } from "lucide-react";
 import { CheckoutSteps } from "@/components/public/CheckoutSteps";
 import { Container } from "@/components/common/SectionHeader";
 import { Button } from "@/components/common/Button";
@@ -38,7 +38,9 @@ export default function CheckoutPage() {
   const [phone,        setPhone]        = useState("");
   const [cpf,          setCpf]          = useState("");
   const [state,        setState]        = useState("");
-  const [paymentMethod, setPaymentMethod] = useState<"pix" | "card">("pix");
+  // Cartão de crédito foi descontinuado como forma de pagamento — só Pix
+  // por enquanto, então nem faz sentido perguntar ao cliente.
+  const paymentMethod = "pix" as const;
 
   const [emailTouched, setEmailTouched] = useState(false);
   const [cpfTouched,   setCpfTouched]   = useState(false);
@@ -171,49 +173,12 @@ export default function CheckoutPage() {
               </div>
             </div>
 
-            {/* Payment method — escolhido aqui, não na tela seguinte: assim o
-                site só gera a cobrança do método que o cliente realmente
-                quer (evita criar um Pix à toa na PyxGate quando o cliente já
-                vai pagar no cartão). */}
+            {/* Cartão de crédito descontinuado — só Pix por enquanto. */}
             <div className="bg-dark-surface rounded-2xl border border-dark-border p-6 space-y-3">
               <h2 className="text-base font-bold text-dark-text">Forma de pagamento</h2>
-              <div className="grid grid-cols-2 gap-3">
-                <button
-                  type="button"
-                  onClick={() => setPaymentMethod("pix")}
-                  className={[
-                    "relative flex flex-col items-center gap-2 p-4 rounded-xl border text-center transition-all",
-                    paymentMethod === "pix"
-                      ? "border-accent bg-accent/10"
-                      : "border-dark-border-light hover:border-accent/40",
-                  ].join(" ")}
-                >
-                  {paymentMethod === "pix" && (
-                    <span className="absolute top-2 right-2 w-4 h-4 rounded-full bg-accent flex items-center justify-center">
-                      <Check size={11} className="text-dark-bg" />
-                    </span>
-                  )}
-                  <QrCode size={22} className={paymentMethod === "pix" ? "text-accent" : "text-muted"} />
-                  <span className="text-sm font-semibold text-dark-text">Pix</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setPaymentMethod("card")}
-                  className={[
-                    "relative flex flex-col items-center gap-2 p-4 rounded-xl border text-center transition-all",
-                    paymentMethod === "card"
-                      ? "border-accent bg-accent/10"
-                      : "border-dark-border-light hover:border-accent/40",
-                  ].join(" ")}
-                >
-                  {paymentMethod === "card" && (
-                    <span className="absolute top-2 right-2 w-4 h-4 rounded-full bg-accent flex items-center justify-center">
-                      <Check size={11} className="text-dark-bg" />
-                    </span>
-                  )}
-                  <CreditCard size={22} className={paymentMethod === "card" ? "text-accent" : "text-muted"} />
-                  <span className="text-sm font-semibold text-dark-text">Cartão de crédito</span>
-                </button>
+              <div className="flex items-center gap-3 p-4 rounded-xl border border-accent bg-accent/10">
+                <QrCode size={22} className="text-accent flex-shrink-0" />
+                <span className="text-sm font-semibold text-dark-text">Pix</span>
               </div>
               <div className="flex items-center gap-3 p-3 rounded-xl border border-accent/40 bg-accent/5">
                 <ShieldCheck size={16} className="text-accent flex-shrink-0" />

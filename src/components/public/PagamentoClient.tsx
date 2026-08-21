@@ -93,7 +93,12 @@ const CARD_BRAND_OPTIONS = [
 // ZendrySDKThreeds.init_threeds() antes de submeter o pagamento (a PYX Gate
 // roteia o desafio de cartão pela Zendry por trás, ver
 // src/app/api/payments/pyxgate-3ds-token).
-const CARD_PAYMENT_ENABLED = true;
+// Cartão de crédito foi descontinuado como forma de pagamento (decisão do
+// negócio, não é técnico) — checkout.ts nem manda mais paymentMethod
+// "card", mas isso aqui garante que a tela de pagamento também nunca
+// mostra o formulário de cartão, mesmo pra um pedido antigo que tenha
+// ficado com payment_method "card" salvo antes dessa mudança.
+const CARD_PAYMENT_ENABLED = false;
 
 export function PagamentoClient({
   orderId,
