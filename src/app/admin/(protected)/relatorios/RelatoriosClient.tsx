@@ -1,12 +1,14 @@
 "use client";
 
 import React, { useState } from "react";
-import { BarChart3, DollarSign, ShoppingCart, TrendingUp } from "lucide-react";
+import { BarChart3, DollarSign, ShoppingCart, TrendingUp, Filter } from "lucide-react";
 import { StatCard } from "@/components/admin/StatCard";
 import { ReportCard } from "@/components/admin/ReportCard";
 import { Tabs, TabContent } from "@/components/common/Tabs";
 import { Badge } from "@/components/common/Badge";
+import { Button } from "@/components/common/Button";
 import { formatCurrency, formatDate } from "@/lib/formatters";
+import { getSalesReportForRange } from "@/lib/actions/reports";
 import { COUPON_TYPE_LABELS } from "@/types";
 import type { SalesReport, ProductSalesData, CategorySalesData, CustomerReportData, CouponReportData } from "@/types";
 import type { OperationalReportAdmin } from "@/lib/db/reports";
@@ -30,9 +32,30 @@ interface Props {
 }
 
 export function RelatoriosClient({
-  salesReport, productSales, categorySales, customerReport, couponReport, operationalReport,
+  salesReport: initialSalesReport, productSales, categorySales, customerReport, couponReport, operationalReport,
 }: Props) {
   const [activeTab, setActiveTab] = useState("vendas");
+
+  // Vendas — período customizável. Começa com o período que a página já
+  // carregou do servidor (últimos 14 dias); o usuário pode escolher outro
+  // intervalo e buscar de novo sem recarregar a página inteira.
+  const [salesReport, setSalesReport] = useState(initialSalesReport);
+  const [fromDate, setFromDate] = useState(initialSalesReport.period_start);
+  const [toDate, setToDate] = useState(initialSalesReport.period_end);
+  const [filtering, setFiltering] = useState(false);
+  const [filterError, setFilterError] = useState("");
+
+  const handleFilter = async () => {
+    setFiltering(true);
+    setFilterError("");
+    const result = await getSalesReportForRange(fromDate, toDate);
+    setFiltering(false);
+    if ("error" in result) {
+      setFilterError(result.error);
+      return;
+    }
+    setSalesReport(result.report);
+  };
 
   return (
     <div className="space-y-6">
@@ -41,6 +64,40 @@ export function RelatoriosClient({
         <p className="text-sm text-muted mt-1">
           {formatDate(salesReport.period_start)} — {formatDate(salesReport.period_end)}
         </p>
+      </div>
+
+      {/* Filtro de período — afeta os KPIs de vendas acima e a aba "Vendas" */}
+      <div className="bg-dark-surface rounded-2xl border border-dark-border p-4 flex flex-wrap items-end gap-3">
+        <div>
+          <label className="block text-xs font-medium text-dark-text mb-1.5">De</label>
+          <input
+            type="date"
+            value={fromDate}
+            max={toDate}
+            onChange={(e) => setFromDate(e.target.value)}
+            className="bg-dark-alt border border-dark-border-light rounded-xl px-3 py-2 text-sm text-dark-text focus:outline-none focus:border-accent/50 focus:ring-2 focus:ring-accent/10"
+          />
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-dark-text mb-1.5">Até</label>
+          <input
+            type="date"
+            value={toDate}
+            min={fromDate}
+            onChange={(e) => setToDate(e.target.value)}
+            className="bg-dark-alt border border-dark-border-light rounded-xl px-3 py-2 text-sm text-dark-text focus:outline-none focus:border-accent/50 focus:ring-2 focus:ring-accent/10"
+          />
+        </div>
+        <Button
+          variant="accent"
+          size="sm"
+          leftIcon={<Filter size={14} />}
+          onClick={handleFilter}
+          isLoading={filtering}
+        >
+          Filtrar
+        </Button>
+        {filterError && <p className="text-sm text-danger">{filterError}</p>}
       </div>
 
       {/* Summary KPIs */}

@@ -1,5 +1,6 @@
 import { createServiceClient } from "@/lib/supabase/server";
 import { getAllCustomersAdmin } from "./customers";
+import { brasiliaDayStartUTCOffset, brasiliaDateKey, brasiliaDateStringToUTC } from "@/lib/timezone";
 import type {
   SalesReport, SalesDataPoint, ProductSalesData, CategorySalesData,
   CustomerReportData, CouponReportData, CouponType,
@@ -14,15 +15,21 @@ interface QualifyingOrder {
 
 // Pedidos "pagos" (payment_status confirmado e não cancelados) dentro do
 // período — base usada tanto pelo relatório de vendas quanto pelas
-// agregações de produto/categoria.
+// agregações de produto/categoria. `periodEndExclusive` opcional pra
+// períodos com data final fixa (não "até agora").
 async function getPaidOrdersInPeriod(
   service: ServiceClient,
-  periodStart: Date
+  periodStart: Date,
+  periodEndExclusive?: Date
 ): Promise<{ all: { id: string; total: number; status: string; payment_status: string; created_at: string }[]; paid: QualifyingOrder[] }> {
-  const { data, error } = await service
+  let query = service
     .from("orders")
     .select("id, total, status, payment_status, created_at")
     .gte("created_at", periodStart.toISOString());
+  if (periodEndExclusive) {
+    query = query.lt("created_at", periodEndExclusive.toISOString());
+  }
+  const { data, error } = await query;
 
   if (error) throw error;
 
@@ -34,15 +41,16 @@ async function getPaidOrdersInPeriod(
   return { all, paid };
 }
 
-export async function getSalesReportAdmin(days = 14): Promise<SalesReport> {
-  const service = createServiceClient();
-
-  const periodEnd = new Date();
-  const periodStart = new Date(periodEnd);
-  periodStart.setDate(periodStart.getDate() - (days - 1));
-  periodStart.setHours(0, 0, 0, 0);
-
-  const { all, paid } = await getPaidOrdersInPeriod(service, periodStart);
+// Monta o SalesReport (KPIs + receita por dia) pra um intervalo de dias de
+// Brasília já resolvido em instantes UTC — compartilhado entre o relatório
+// "últimos N dias" e o filtro de período customizado.
+async function buildSalesReport(
+  service: ServiceClient,
+  periodStart: Date,
+  periodEndExclusive: Date,
+  dayCount: number
+): Promise<SalesReport> {
+  const { all, paid } = await getPaidOrdersInPeriod(service, periodStart, periodEndExclusive);
 
   const pendingCount = all.filter((o) => o.payment_status === "pending").length;
   const cancelledCount = all.filter((o) => o.status === "cancelled").length;
@@ -50,11 +58,12 @@ export async function getSalesReportAdmin(days = 14): Promise<SalesReport> {
 
   const paidByOrderId = new Map(all.map((o) => [o.id, o]));
   const revenue_by_day: SalesDataPoint[] = [];
-  for (let i = 0; i < days; i++) {
-    const day = new Date(periodStart);
-    day.setDate(day.getDate() + i);
-    const dayStr = day.toISOString().split("T")[0];
-    const dayOrders = paid.filter((o) => paidByOrderId.get(o.id)?.created_at.startsWith(dayStr));
+  for (let i = 0; i < dayCount; i++) {
+    const dayStr = brasiliaDateKey(brasiliaDayStartUTCOffset(i, periodStart).toISOString());
+    const dayOrders = paid.filter((o) => {
+      const createdAt = paidByOrderId.get(o.id)?.created_at;
+      return createdAt && brasiliaDateKey(createdAt) === dayStr;
+    });
     revenue_by_day.push({
       date: dayStr,
       revenue: Number(dayOrders.reduce((sum, o) => sum + o.total, 0).toFixed(2)),
@@ -62,9 +71,11 @@ export async function getSalesReportAdmin(days = 14): Promise<SalesReport> {
     });
   }
 
+  const periodEndInclusive = new Date(periodEndExclusive.getTime() - 1);
+
   return {
-    period_start: periodStart.toISOString().split("T")[0],
-    period_end: periodEnd.toISOString().split("T")[0],
+    period_start: brasiliaDateKey(periodStart.toISOString()),
+    period_end: brasiliaDateKey(periodEndInclusive.toISOString()),
     total_revenue: Number(totalRevenue.toFixed(2)),
     total_orders: all.length,
     average_ticket: all.length > 0 ? Number((totalRevenue / all.length).toFixed(2)) : 0,
@@ -75,14 +86,30 @@ export async function getSalesReportAdmin(days = 14): Promise<SalesReport> {
   };
 }
 
+export async function getSalesReportAdmin(days = 14): Promise<SalesReport> {
+  const service = createServiceClient();
+  const periodStart = brasiliaDayStartUTCOffset(-(days - 1));
+  const periodEndExclusive = brasiliaDayStartUTCOffset(1); // início de amanhã (Brasília) — cobre o dia de hoje inteiro
+  return buildSalesReport(service, periodStart, periodEndExclusive, days);
+}
+
+// Relatório de vendas pra um intervalo de datas escolhido pelo usuário
+// (inputs "YYYY-MM-DD", inclusive nas duas pontas, interpretados em
+// horário de Brasília).
+export async function getSalesReportForRangeAdmin(fromDateStr: string, toDateStr: string): Promise<SalesReport> {
+  const service = createServiceClient();
+  const periodStart = brasiliaDateStringToUTC(fromDateStr);
+  const periodEndExclusive = brasiliaDateStringToUTC(toDateStr, 1);
+  const dayCount = Math.max(1, Math.round((periodEndExclusive.getTime() - periodStart.getTime()) / 86400000));
+  return buildSalesReport(service, periodStart, periodEndExclusive, dayCount);
+}
+
 export async function getProductAndCategorySalesAdmin(
   days = 14
 ): Promise<{ products: ProductSalesData[]; categories: CategorySalesData[] }> {
   const service = createServiceClient();
 
-  const periodStart = new Date();
-  periodStart.setDate(periodStart.getDate() - (days - 1));
-  periodStart.setHours(0, 0, 0, 0);
+  const periodStart = brasiliaDayStartUTCOffset(-(days - 1));
 
   const { paid } = await getPaidOrdersInPeriod(service, periodStart);
   if (paid.length === 0) return { products: [], categories: [] };

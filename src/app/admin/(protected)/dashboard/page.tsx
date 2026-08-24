@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import {
-  ShoppingCart, DollarSign, Package, Users, AlertTriangle, ArrowRight,
+  ShoppingCart, Package, Users, AlertTriangle, ArrowRight,
 } from "lucide-react";
 import { StatCard } from "@/components/admin/StatCard";
+import { DashboardFaturamentoCard } from "@/components/admin/DashboardFaturamentoCard";
 import { Badge } from "@/components/common/Badge";
 import { formatCurrency, formatDate } from "@/lib/formatters";
 import { getDashboardKPIs } from "@/lib/db/orders";
@@ -78,14 +79,7 @@ export default async function DashboardPage() {
           icon={ShoppingCart}
           trend={0}
         />
-        <StatCard
-          title="Faturamento hoje"
-          value={formatCurrency(kpis.revenue_today)}
-          subtitle="Pagamentos confirmados"
-          icon={DollarSign}
-          trend={0}
-          accent
-        />
+        <DashboardFaturamentoCard initialRevenueToday={kpis.revenue_today} />
         <StatCard
           title="Produtos ativos"
           value={kpis.active_products}

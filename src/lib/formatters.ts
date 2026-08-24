@@ -4,22 +4,30 @@ export const formatCurrency = (value: number): string =>
     currency: "BRL",
   }).format(value);
 
-// "YYYY-MM-DD" strings from the DB/form must be parsed as LOCAL dates.
-// new Date("YYYY-MM-DD") treats them as UTC midnight, which shifts the displayed
-// day by the UTC offset (e.g. UTC-3 turns June 17 → June 16 21:00 local).
+import { STORE_TIMEZONE } from "@/lib/timezone";
+
+// "YYYY-MM-DD" strings from the DB/form must be parsed as calendar dates, not
+// as a UTC instant. Anchoring at UTC noon (instead of runtime-local
+// midnight) means formatting it later with an explicit timeZone never shifts
+// it to the wrong day, regardless of whether this runs on the server (UTC on
+// Vercel) or in the browser.
 function parseLocalDate(s: string): Date {
   if (/^\d{4}-\d{2}-\d{2}$/.test(s)) {
     const [y, m, d] = s.split("-").map(Number);
-    return new Date(y, m - 1, d); // local midnight
+    return new Date(Date.UTC(y, m - 1, d, 12, 0, 0));
   }
   return new Date(s);
 }
 
+// Todos os formatters abaixo fixam timeZone: America/Sao_Paulo — sem isso,
+// datas/horas renderizadas no servidor (Vercel roda em UTC) ficavam até 3h
+// erradas em relação ao horário real da loja.
 export const formatDate = (dateString: string): string =>
   new Intl.DateTimeFormat("pt-BR", {
     day: "numeric",
     month: "long",
     year: "numeric",
+    timeZone: STORE_TIMEZONE,
   }).format(parseLocalDate(dateString));
 
 export const formatDateShort = (dateString: string): string =>
@@ -27,6 +35,7 @@ export const formatDateShort = (dateString: string): string =>
     day: "2-digit",
     month: "2-digit",
     year: "numeric",
+    timeZone: STORE_TIMEZONE,
   }).format(parseLocalDate(dateString));
 
 export const formatDateTime = (dateString: string): string =>
@@ -36,6 +45,7 @@ export const formatDateTime = (dateString: string): string =>
     year: "numeric",
     hour: "2-digit",
     minute: "2-digit",
+    timeZone: STORE_TIMEZONE,
   }).format(new Date(dateString));
 
 export const formatTime = (dateString: string): string =>
@@ -43,6 +53,7 @@ export const formatTime = (dateString: string): string =>
     hour: "2-digit",
     minute: "2-digit",
     second: "2-digit",
+    timeZone: STORE_TIMEZONE,
   }).format(new Date(dateString));
 
 export const formatDateTimeSeconds = (dateString: string): string =>
@@ -53,6 +64,7 @@ export const formatDateTimeSeconds = (dateString: string): string =>
     hour: "2-digit",
     minute: "2-digit",
     second: "2-digit",
+    timeZone: STORE_TIMEZONE,
   }).format(new Date(dateString));
 
 export const formatPhone = (phone: string): string => phone;

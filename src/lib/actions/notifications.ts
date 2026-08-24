@@ -16,7 +16,10 @@ export interface AdminNotification {
   date: string; // só pra ordenar — não exibido
 }
 
-const PENDING_ORDER_STATUSES = ["pending_payment", "shipping_paid"] as const;
+// Só notifica pedido que já teve a compra aprovada e precisa de ação do
+// admin (subir etiqueta) — "pending_payment" saiu daqui de propósito: é só
+// um carrinho que ainda pode nem virar venda, não precisa de alerta.
+const ORDERS_NEEDING_ACTION_STATUSES = ["shipping_paid"] as const;
 const COUPON_EXPIRING_WINDOW_DAYS = 7;
 const MAX_PER_TYPE = 8;
 const MAX_TOTAL = 20;
@@ -26,7 +29,7 @@ const MAX_TOTAL = 20;
 // ao chegar, marcar como lida) sem precisar de pedidos/cupons reais.
 // Troque para `false` (ou apague o bloco) quando terminar de testar.
 // ---------------------------------------------------------------------------
-const INCLUDE_TEST_NOTIFICATIONS = true;
+const INCLUDE_TEST_NOTIFICATIONS = false;
 
 function buildTestNotifications(): AdminNotification[] {
   const now = new Date().toISOString();
@@ -50,11 +53,11 @@ export async function getAdminNotifications(): Promise<AdminNotification[] | { e
 
   const notifications: AdminNotification[] = [];
 
-  // --- Pedidos pendentes ----------------------------------------------------
+  // --- Pedidos que precisam de ação (compra já aprovada) -------------------
   const { data: orders } = await service
     .from("orders")
     .select("id, order_number, customer_name, status, created_at")
-    .in("status", PENDING_ORDER_STATUSES)
+    .in("status", ORDERS_NEEDING_ACTION_STATUSES)
     .order("created_at", { ascending: false })
     .limit(MAX_PER_TYPE);
 
@@ -62,12 +65,9 @@ export async function getAdminNotifications(): Promise<AdminNotification[] | { e
     notifications.push({
       id: `order-${o.id}`,
       type: "order",
-      severity: o.status === "shipping_paid" ? "danger" : "warning",
+      severity: "danger",
       title: `Pedido #${o.order_number}`,
-      subtitle:
-        o.status === "shipping_paid"
-          ? `Aguardando etiqueta de envio · ${o.customer_name}`
-          : `Pagamento pendente · ${o.customer_name}`,
+      subtitle: `Aguardando etiqueta de envio · ${o.customer_name}`,
       href: routes.admin.pedido(o.id),
       date: o.created_at,
     });
